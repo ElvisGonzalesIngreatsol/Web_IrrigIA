@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 30 33% 97%; /* Light cream #F9F6F3 */
+    --foreground: 162 31% 16%; /* Dark forest green #1C352D */
+    --card: 30 33% 97%; /* Light cream #F9F6F3 */
+    --card-foreground: 162 31% 16%; /* Dark forest green #1C352D */
+    --popover: 30 33% 97%; /* Light cream #F9F6F3 */
+    --popover-foreground: 162 31% 16%; /* Dark forest green #1C352D */
+    --primary: 162 31% 16%; /* Dark forest green #1C352D */
+    --primary-foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --secondary: 75 18% 63%; /* Sage green #A6B28B */
+    --secondary-foreground: 162 31% 16%; /* Dark forest green #1C352D */
+    --muted: 75 18% 63%; /* Sage green #A6B28B */
+    --muted-foreground: 162 31% 16%; /* Dark forest green #1C352D */
+    --accent: 23 78% 89%; /* Warm peach #F5C9B0 */
+    --accent-foreground: 162 31% 16%; /* Dark forest green #1C352D */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --border: 75 18% 80%; /* Lighter sage green for borders */
+    --input: 75 18% 80%; /* Lighter sage green for inputs */
+    --ring: 162 31% 16%; /* Dark forest green #1C352D */
+    --chart-1: 162 31% 16%; /* Dark forest green */
+    --chart-2: 75 18% 63%; /* Sage green */
+    --chart-3: 23 78% 89%; /* Warm peach */
+    --chart-4: 30 33% 97%; /* Light cream */
+    --chart-5: 162 31% 25%; /* Slightly lighter forest green */
+    --radius: 0.5rem;
+    --sidebar-background: 162 31% 16%; /* Dark forest green #1C352D */
+    --sidebar-foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --sidebar-primary: 23 78% 89%; /* Warm peach #F5C9B0 */
+    --sidebar-primary-foreground: 162 31% 16%; /* Dark forest green #1C352D */
+    --sidebar-accent: 75 18% 63%; /* Sage green #A6B28B */
+    --sidebar-accent-foreground: 162 31% 16%; /* Dark forest green #1C352D */
+    --sidebar-border: 75 18% 50%; /* Darker sage green for borders */
+    --sidebar-ring: 23 78% 89%; /* Warm peach #F5C9B0 */
+  }
+  .dark {
+    --background: 162 31% 8%; /* Very dark forest green */
+    --foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --card: 162 31% 12%; /* Dark forest green variant */
+    --card-foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --popover: 162 31% 12%; /* Dark forest green variant */
+    --popover-foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --primary: 30 33% 97%; /* Light cream #F9F6F3 */
+    --primary-foreground: 162 31% 16%; /* Dark forest green #1C352D */
+    --secondary: 162 31% 20%; /* Darker forest green */
+    --secondary-foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --muted: 162 31% 20%; /* Darker forest green */
+    --muted-foreground: 75 18% 70%; /* Lighter sage green */
+    --accent: 75 18% 40%; /* Darker sage green */
+    --accent-foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --border: 162 31% 20%; /* Darker forest green */
+    --input: 162 31% 20%; /* Darker forest green */
+    --ring: 23 78% 89%; /* Warm peach #F5C9B0 */
+    --chart-1: 23 78% 89%; /* Warm peach */
+    --chart-2: 75 18% 63%; /* Sage green */
+    --chart-3: 30 33% 97%; /* Light cream */
+    --chart-4: 162 31% 25%; /* Lighter forest green */
+    --chart-5: 75 18% 50%; /* Darker sage green */
+    --sidebar-background: 162 31% 6%; /* Very dark forest green */
+    --sidebar-foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --sidebar-primary: 23 78% 89%; /* Warm peach #F5C9B0 */
+    --sidebar-primary-foreground: 162 31% 16%; /* Dark forest green #1C352D */
+    --sidebar-accent: 162 31% 15%; /* Dark forest green variant */
+    --sidebar-accent-foreground: 30 33% 97%; /* Light cream #F9F6F3 */
+    --sidebar-border: 162 31% 15%; /* Dark forest green variant */
+    --sidebar-ring: 23 78% 89%; /* Warm peach #F5C9B0 */
+  }
+}
+
+* {
+  @apply border-border;
+}
+body {
+  @apply bg-background text-foreground;
+}

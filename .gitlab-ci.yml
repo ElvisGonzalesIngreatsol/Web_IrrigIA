@@ -1,0 +1,61 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  NODE_VERSION: "18"
+
+# Cache node_modules para acelerar builds
+cache:
+  paths:
+    - node_modules/
+    - .pnpm-store/
+
+# Instalar dependencias
+before_script:
+  - corepack enable
+  - corepack prepare pnpm@latest --activate
+  - pnpm config set store-dir .pnpm-store
+
+# Build del proyecto
+build:
+  stage: build
+  image: node:18-alpine
+  script:
+    - pnpm install --frozen-lockfile
+    - pnpm run build
+  artifacts:
+    paths:
+      - .next/
+      - out/
+    expire_in: 1 hour
+  only:
+    - main
+    - develop
+
+# Deploy a Vercel desde GitLab
+deploy_production:
+  stage: deploy
+  image: node:18-alpine
+  before_script:
+    - npm install -g vercel
+  script:
+    - vercel --token $VERCEL_TOKEN --prod --yes
+  environment:
+    name: production
+    url: https://tu-dominio.vercel.app
+  only:
+    - main
+
+# Deploy de staging
+deploy_staging:
+  stage: deploy
+  image: node:18-alpine
+  before_script:
+    - npm install -g vercel
+  script:
+    - vercel --token $VERCEL_TOKEN --yes
+  environment:
+    name: staging
+  only:
+    - develop
