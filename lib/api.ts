@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.0.111:3001"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.0.115:3001"
 
 interface ApiResponse<T = any> {
   success: boolean
@@ -314,8 +314,9 @@ class ApiService {
     name: string
     location: string
     area: number
-    coordinates: any[]
-    mapCoordinates: any
+    coordinates?: any[]
+    latitude: number
+    longitude: number
   }): Promise<any> {
     const response = await this.request<any>("/api/fincas", {
       method: "POST",

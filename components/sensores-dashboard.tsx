@@ -28,9 +28,9 @@ export function SensoresDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Filtrar datos según el rol del usuario
-  const userFincas = user?.role === "admin" ? fincas : user?.fincaId ? fincas.filter((f) => f.id === user.fincaId) : []
-  const userLotes = user?.role === "admin" ? lotes : lotes.filter((l) => userFincas.some((f) => f.id === l.fincaId))
-  const userSensors = user?.role === "admin" ? sensors : sensors.filter((s) => userLotes.some((l) => l.id === s.loteId))
+  const userFincas = user?.role === "ADMIN" ? fincas : user?.fincaId ? fincas.filter((f) => f.id === user.fincaId) : []
+  const userLotes = user?.role === "ADMIN" ? lotes : lotes.filter((l) => userFincas.some((f) => f.id === l.fincaId))
+  const userSensors = user?.role === "ADMIN" ? sensors : sensors.filter((s) => userLotes.some((l) => l.id === s.loteId))
 
   const filteredLotes = selectedFincaId === "all" ? userLotes : userLotes.filter((l) => l.fincaId === selectedFincaId)
   const filteredSensors = userSensors.filter((sensor) => {

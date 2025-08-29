@@ -312,14 +312,14 @@ export function LotesValvulasManagement() {
           Gestión de Lotes y Válvulas
         </h1>
         <p className="mt-2" style={{ color: "#1C352D" }}>
-          {user?.role === "admin"
+          {user?.role === "ADMIN"
             ? "Administra los lotes y válvulas de riego de todas las fincas"
             : `Administra los lotes y válvulas de tu finca`}
         </p>
       </div>
 
       {/* Selector de Finca - Solo si es admin o si no tiene finca asignada */}
-      {(user?.role === "admin" || !user?.fincaId) && (
+      {(user?.role === "ADMIN" || !user?.fincaId) && (
         <Card className="shadow-lg border-0" style={{ backgroundColor: "#F9F6F3" }}>
           <CardHeader
             className="rounded-t-lg border px-6 py-6 rounded-xl shadow-sm"
@@ -1149,7 +1149,7 @@ export function LotesValvulasManagement() {
           {viewingLoteData && selectedFinca && (
             <LoteMapEditor
               center={selectedFinca.mapCoordinates}
-              zoom={selectedFinca.mapCoordinates.zoom}
+              zoom={selectedFinca.zoom}
               coordinates={viewingLoteData.coordinates}
               onCoordinatesChange={() => {}} // Read-only
               readonly={true}

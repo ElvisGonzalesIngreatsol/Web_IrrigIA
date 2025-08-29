@@ -31,13 +31,14 @@ export interface Finca {
   id: number
   name: string
   location: string
+  descripcion?: string
   area: number
-  lotes: Lote[]
-  owner: string
+  lotes?: Lote[]
+  latitude: number
+  longitude: number
   status: "active" | "inactive"
   coordinates: LoteCoordinate[]
-  mapCoordinates: MapCoordinate
-  createdAt: Date
+  createdAt: string
 }
 
 export interface Lote {

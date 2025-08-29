@@ -484,7 +484,7 @@ export function LoteMapEditor({
   }, [map, coordinates, readonly, isLote, removePoint, onCoordinatesChange, isPointInPolygon, addNotification])
 
   const calculateArea = useCallback(() => {
-    if (coordinates.length < 3 || !window.google?.maps) return 0
+    if (coordinates?.length < 3 || !window.google?.maps) return 0
 
     if (!window.google.maps.geometry?.spherical) {
       console.warn("Google Maps Geometry library not loaded")
@@ -763,11 +763,11 @@ export function LoteMapEditor({
               <Navigation className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Centrar</span>
             </Button>
-            <Button onClick={removeLastPoint} variant="outline" size="sm" disabled={coordinates.length === 0}>
+            <Button onClick={removeLastPoint} variant="outline" size="sm" disabled={coordinates?.length === 0}>
               <RotateCcw className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Deshacer</span>
             </Button>
-            <Button onClick={clearCoordinates} variant="outline" size="sm" disabled={coordinates.length === 0}>
+            <Button onClick={clearCoordinates} variant="outline" size="sm" disabled={coordinates?.length === 0}>
               <Trash2 className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Limpiar</span>
             </Button>
@@ -860,7 +860,7 @@ export function LoteMapEditor({
             <div>
               <p className="text-sm font-medium mb-2">Puntos definidos:</p>
               <Badge variant="outline" className="text-sm sm:text-lg px-2 sm:px-3 py-1">
-                {coordinates.length} puntos
+                {coordinates?.length} puntos
               </Badge>
             </div>
             <div>
@@ -872,10 +872,10 @@ export function LoteMapEditor({
             <div>
               <p className="text-sm font-medium mb-2">Estado:</p>
               <Badge
-                variant={coordinates.length >= 3 ? "default" : "secondary"}
+                variant={coordinates?.length >= 3 ? "default" : "secondary"}
                 className="text-sm sm:text-lg px-2 sm:px-3 py-1"
               >
-                {coordinates.length >= 3 ? "Válido" : "Incompleto"}
+                {coordinates?.length >= 3 ? "Válido" : "Incompleto"}
               </Badge>
             </div>
           </div>
@@ -906,7 +906,7 @@ export function LoteMapEditor({
           </div>
 
           {/* Lista de coordenadas */}
-          {coordinates.length > 0 && (
+          {coordinates?.length > 0 && (
             <div className="mt-4">
               <p className="text-sm font-medium mb-2">Coordenadas:</p>
               <div className="max-h-32 overflow-y-auto bg-gray-50 rounded p-2">

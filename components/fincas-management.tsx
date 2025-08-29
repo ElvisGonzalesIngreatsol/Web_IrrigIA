@@ -44,7 +44,9 @@ export function FincasManagement() {
     location: "",
     area: 0,
     coordinates: [] as LoteCoordinate[],
-    mapCoordinates: { lat: 4.711, lng: -74.0721, zoom: 15 },
+    latitude: 0.0,
+    longitude: 0.0,
+    zoom: 15,
   })
 
   useEffect(() => {
@@ -102,7 +104,7 @@ export function FincasManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.location || formData.coordinates.length < 3) {
+    if (!formData.name || !formData.location || formData.coordinates?.length < 3) {
       addNotification({
         type: "error",
         title: "Error de validación",
@@ -154,12 +156,12 @@ export function FincasManagement() {
   }
 
   const calculatePolygonArea = (coordinates: LoteCoordinate[]): number => {
-    if (coordinates.length < 3) return 0
+    if (coordinates?.length < 3) return 0
 
     let area = 0
     const earthRadius = 6371000 // metros
 
-    for (let i = 0; i < coordinates.length; i++) {
+    for (let i = 0; i < coordinates?.length; i++) {
       const j = (i + 1) % coordinates.length
       const lat1 = (coordinates[i].lat * Math.PI) / 180
       const lat2 = (coordinates[j].lat * Math.PI) / 180
@@ -179,7 +181,9 @@ export function FincasManagement() {
       location: "",
       area: 0,
       coordinates: [],
-      mapCoordinates: { lat: 4.711, lng: -74.0721, zoom: 15 },
+      latitude: 0.0,
+      longitude: 0.0,
+      zoom: 15,
     })
     setEditingFinca(null)
   }
@@ -190,8 +194,11 @@ export function FincasManagement() {
       name: finca.name,
       location: finca.location,
       area: finca.area,
-      coordinates: finca.coordinates,
-      mapCoordinates: finca.mapCoordinates,
+      latitude: finca.latitude,
+      longitude: finca.latitude,
+      zoom: 15,
+      coordinates: finca.coordinates
+    
     })
     setIsDialogOpen(true)
   }
@@ -269,9 +276,7 @@ export function FincasManagement() {
 
   const buildFincaWithLotes = (finca: Finca) => {
     const fincaLotes = fincas.find((f) => f.id === finca.id)?.lotes || []
-    const fincaValvulas =
-      fincas
-        .find((f) => f.id === finca.id)
+    const fincaValvulas = fincas.find((f) => f.id === finca.id) || []
         ?.lotes.reduce((acc, lote) => {
           return [...acc, ...(lote.valvulas || [])]
         }, []) || []
@@ -280,7 +285,7 @@ export function FincasManagement() {
       ...finca,
       lotes: fincaLotes.map((lote) => ({
         ...lote,
-        valvulas: fincaValvulas.filter((v) => v.loteId === lote.id),
+        valvulas: fincaValvulas?.filter((v) => v.loteId === lote.id),
       })),
     }
   }
@@ -365,14 +370,11 @@ export function FincasManagement() {
                     id="latitude"
                     type="number"
                     step="any"
-                    value={formData.mapCoordinates.lat}
+                    value={formData.latitude || ""}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        mapCoordinates: {
-                          ...formData.mapCoordinates,
-                          lat: Number.parseFloat(e.target.value) || 0,
-                        },
+                        latitude: Number.parseFloat(e.target.value)
                       })
                     }
                     placeholder="Ej: 4.711"
@@ -385,14 +387,11 @@ export function FincasManagement() {
                     id="longitude"
                     type="number"
                     step="any"
-                    value={formData.mapCoordinates.lng}
+                    value={formData.latitude}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        mapCoordinates: {
-                          ...formData.mapCoordinates,
-                          lng: Number.parseFloat(e.target.value) || 0,
-                        },
+                        latitude: Number.parseFloat(e.target.value),
                       })
                     }
                     placeholder="Ej: -74.0721"
@@ -404,8 +403,8 @@ export function FincasManagement() {
               <div className="space-y-2">
                 <Label>Definir Límites de la Finca *</Label>
                 <LoteMapEditor
-                  center={formData.mapCoordinates}
-                  zoom={formData.mapCoordinates.zoom}
+                  center={{lat: formData.latitude , lng: formData.longitude}}
+                  zoom={formData?.zoom}
                   coordinates={formData.coordinates}
                   onCoordinatesChange={(coordinates) => {
                     setFormData({ ...formData, coordinates })
@@ -538,7 +537,7 @@ export function FincasManagement() {
 
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
-                        Creada: {finca.createdAt.toLocaleDateString()}
+                        Creada: {finca.createdAt}
                       </div>
 
                       <div className="flex gap-2 pt-2">
@@ -680,7 +679,7 @@ export function FincasManagement() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {finca.createdAt.toLocaleDateString()}
+                            {finca.createdAt}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end space-x-2">
@@ -762,9 +761,8 @@ export function FincasManagement() {
 
               <div className="h-[500px] rounded-lg overflow-hidden border">
                 <GoogleMap
-                  center={viewingFinca.mapCoordinates}
+                  center ={{lat: 4.711 , lng:  -74.0721}}
                   zoom={16}
-                  fincas={[viewingFinca]}
                   showSatellite={true}
                   height="500px"
                 />
