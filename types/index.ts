@@ -30,7 +30,7 @@ export interface MapCoordinate extends LoteCoordinate {
 export interface Finca {
   id: number
   name: string
-  location: string
+  location?: string
   descripcion?: string
   area: number
   lotes?: Lote[]

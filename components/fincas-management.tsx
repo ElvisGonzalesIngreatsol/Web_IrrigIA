@@ -79,7 +79,7 @@ export function FincasManagement() {
     .filter(
       (finca) =>
         finca.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        finca.location.toLowerCase().includes(searchTerm.toLowerCase()),
+        finca.location?.toLowerCase().includes(searchTerm.toLowerCase()),
     )
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
