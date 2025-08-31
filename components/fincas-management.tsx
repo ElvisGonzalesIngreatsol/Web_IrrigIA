@@ -387,11 +387,11 @@ export function FincasManagement() {
                     id="longitude"
                     type="number"
                     step="any"
-                    value={formData.latitude}
+                    value={formData.longitude}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        latitude: Number.parseFloat(e.target.value),
+                        longitude: Number.parseFloat(e.target.value),
                       })
                     }
                     placeholder="Ej: -74.0721"
