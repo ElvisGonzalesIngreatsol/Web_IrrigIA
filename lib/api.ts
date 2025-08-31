@@ -211,7 +211,7 @@ class ApiService {
     return this.request(`/api/valvulas${queryString}`)
   }
 
-  async controlValvula(valvulaId: string, action: "abrir" | "cerrar", duracion?: number): Promise<ApiResponse<any>> {
+  async controlValvula(valvulaId: number, action: "abrir" | "cerrar", duracion?: number): Promise<ApiResponse<any>> {
     return this.request(`/api/comandos-control`, {
       method: "POST",
       body: JSON.stringify({
@@ -299,6 +299,11 @@ class ApiService {
 
   async healthCheck(): Promise<ApiResponse<any>> {
     return this.request("/health")
+  }
+
+  async getAllFincas(params?: any): Promise<ApiResponse<any[]>> {
+    const queryString = params ? `?${new URLSearchParams(params).toString()}` : ""
+    return this.request(`/api/fincas${queryString}`)
   }
 
   // Farm management endpoints

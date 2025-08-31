@@ -1,10 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
-import { useAuth } from "@/contexts/auth-context"
-import { useData } from "@/contexts/data-context"
+import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,51 +22,68 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TablePagination } from "@/components/table-pagination"
 import { Plus, Edit, Trash2, Droplets, Search } from "lucide-react"
 import { useNotifications } from "./notification-system"
-import type { Valvula } from "@/types"
+import type { Valvula, Finca, Lote } from "@/types"
 import Swal from "sweetalert2"
-
+import { apiService } from "@/lib/api"
 export function ValvulasManagement() {
-  const { user } = useAuth()
-  const { fincas, lotes, valvulas, addValvula, updateValvula, deleteValvula } = useData()
   const { showSuccess, showError } = useNotifications()
+
+  const [fincas, setFincas] = useState<Finca[]>([])
+  const [lotes, setLotes] = useState<Lote[]>([])
+  const [valvulas, setValvulas] = useState<Valvula[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(6)
-  const [selectedFincaId, setSelectedFincaId] = useState<string>(user?.fincaId || "")
+  const [selectedFincaId, setSelectedFincaId] = useState<string>("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingValvula, setEditingValvula] = useState<string | null>(null)
   const [valvulaFormData, setValvulaFormData] = useState({
-    name: "",
-    loteId: "",
-    tipo: "aspersion" as "aspersion" | "goteo" | "microaspersion",
+    nombre: "",
+    estado: "ABIERTA" | "CERRADA",
     caudal: "",
     presion: "",
     descripcion: "",
     deviceId: "",
-    coordinates: { lat: 0, lng: 0 },
     isActive: true,
-    needsMaintenance: false,
-    maintenanceDate: "",
-    maintenanceNotes: "",
   })
 
-  // Filtrar datos según el rol del usuario
-  const userFincas = user?.role === "admin" ? fincas : user?.fincaId ? fincas.filter((f) => f.id === user.fincaId) : []
-  const userLotes = user?.role === "admin" ? lotes : lotes.filter((l) => userFincas.some((f) => f.id === l.fincaId))
-  const userValvulas =
-    user?.role === "admin" ? valvulas : valvulas.filter((v) => userFincas.some((f) => f.id === v.fincaId))
+  const fetchData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const [fincasResponse, valvulasResponse] = await Promise.all([
+        apiService.getFincas(),
+        apiService.getValvulas(),
+      ])
+      setFincas(fincasResponse.data || [])
+      setValvulas(valvulasResponse.data || [])
+      if (!selectedFincaId && fincasResponse.data && fincasResponse.data.length > 0) {
+        setSelectedFincaId(fincasResponse.data[0].id)
+      }
+    } catch (err) {
+      setError("Error al cargar los datos.")
+      console.error(err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [selectedFincaId])
 
-  // Filtrar válvulas por finca seleccionada y término de búsqueda
-  const filteredValvulas = userValvulas
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  const filteredValvulas = valvulas
     .filter((valvula) => !selectedFincaId || valvula.fincaId === selectedFincaId)
     .filter(
       (valvula) =>
-        valvula.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        valvula.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         valvula.deviceId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lotes
           .find((l) => l.id === valvula.loteId)
-          ?.name.toLowerCase()
+          ?.name?.toLowerCase()
           .includes(searchTerm.toLowerCase()),
     )
 
@@ -133,19 +147,31 @@ export function ValvulasManagement() {
         needsMaintenance: valvulaFormData.needsMaintenance,
         maintenanceDate: valvulaFormData.maintenanceDate || null,
         maintenanceNotes: valvulaFormData.maintenanceNotes || null,
-        lastActivity: new Date(),
+        lastActivity: new Date().toISOString(),
       }
 
+      let response
       if (editingValvula) {
-        updateValvula(editingValvula, valvulaData)
-        showSuccess("Válvula Actualizada", `La válvula "${valvulaFormData.name}" ha sido actualizada exitosamente`)
+        response = await apiService.updateValvula(editingValvula, valvulaData)
+        if (response.success) {
+          showSuccess("Válvula Actualizada", `La válvula "${valvulaFormData.name}" ha sido actualizada exitosamente`)
+        } else {
+          showError("Error", response.error || "Ocurrió un error al actualizar la válvula")
+        }
       } else {
-        addValvula(valvulaData)
-        showSuccess("Válvula Creada", `La válvula "${valvulaFormData.name}" ha sido creada exitosamente`)
+        response = await apiService.createValvula(valvulaData)
+        if (response.success) {
+          showSuccess("Válvula Creada", `La válvula "${valvulaFormData.name}" ha sido creada exitosamente`)
+        } else {
+          showError("Error", response.error || "Ocurrió un error al crear la válvula")
+        }
       }
 
-      resetForm()
-      setIsDialogOpen(false)
+      if (response.success) {
+        resetForm()
+        setIsDialogOpen(false)
+        fetchData() // Vuelve a cargar los datos para actualizar la tabla
+      }
     } catch (error) {
       showError("Error", "Ocurrió un error al procesar la válvula")
     }
@@ -180,15 +206,25 @@ export function ValvulasManagement() {
       cancelButtonColor: "#A6B28B",
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        deleteValvula(valvula.id)
-        Swal.fire({
-          title: "¡Eliminado!",
-          text: "La válvula ha sido eliminada correctamente",
-          icon: "success",
-          confirmButtonColor: "#1C352D",
-        })
+        const response = await apiService.deleteValvula(valvula.id)
+        if (response.success) {
+          Swal.fire({
+            title: "¡Eliminado!",
+            text: "La válvula ha sido eliminada correctamente",
+            icon: "success",
+            confirmButtonColor: "#1C352D",
+          })
+          fetchData() // Vuelve a cargar los datos
+        } else {
+          Swal.fire({
+            title: "Error",
+            text: response.error || "Hubo un problema al eliminar la válvula",
+            icon: "error",
+            confirmButtonColor: "#1C352D",
+          })
+        }
       }
     })
   }
@@ -232,6 +268,25 @@ export function ValvulasManagement() {
       <Badge variant="outline" className={typeColors[tipo as keyof typeof typeColors] || "bg-gray-100 text-gray-800"}>
         {typeNames[tipo as keyof typeof typeNames] || tipo}
       </Badge>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <p>Cargando datos...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-red-500">
+        <p>{error}</p>
+        <Button onClick={fetchData} className="mt-4">
+          Reintentar
+        </Button>
+      </div>
     )
   }
 
@@ -303,23 +358,21 @@ export function ValvulasManagement() {
                   </div>
                 </div>
 
-                {(user?.role === "admin" || !user?.fincaId) && (
-                  <div className="space-y-2">
-                    <Label htmlFor="finca">Finca *</Label>
-                    <Select value={selectedFincaId} onValueChange={setSelectedFincaId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar finca" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {userFincas.map((finca) => (
-                          <SelectItem key={finca.id} value={finca.id}>
-                            {finca.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="finca">Finca *</Label>
+                  <Select value={selectedFincaId} onValueChange={setSelectedFincaId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar finca" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fincas.map((finca) => (
+                        <SelectItem key={finca.id} value={finca.id}>
+                          {finca.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -332,7 +385,7 @@ export function ValvulasManagement() {
                         <SelectValue placeholder="Seleccionar lote" />
                       </SelectTrigger>
                       <SelectContent>
-                        {userLotes
+                        {lotes
                           .filter((lote) => !selectedFincaId || lote.fincaId === selectedFincaId)
                           .map((lote) => (
                             <SelectItem key={lote.id} value={lote.id}>
@@ -424,28 +477,26 @@ export function ValvulasManagement() {
       </div>
 
       {/* Filtros */}
-      {(user?.role === "admin" || !user?.fincaId) && (
-        <Card style={{ backgroundColor: "#F9F6F3", borderColor: "#A6B28B" }}>
-          <CardHeader>
-            <CardTitle style={{ color: "#1C352D" }}>Filtrar por Finca</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Select value={selectedFincaId} onValueChange={setSelectedFincaId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todas las fincas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las fincas</SelectItem>
-                {userFincas.map((finca) => (
-                  <SelectItem key={finca.id} value={finca.id}>
-                    {finca.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </CardContent>
-        </Card>
-      )}
+      <Card style={{ backgroundColor: "#F9F6F3", borderColor: "#A6B28B" }}>
+        <CardHeader>
+          <CardTitle style={{ color: "#1C352D" }}>Filtrar por Finca</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select value={selectedFincaId} onValueChange={setSelectedFincaId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Todas las fincas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las fincas</SelectItem>
+              {fincas.map((finca) => (
+                <SelectItem key={finca.id} value={finca.id}>
+                  {finca.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
 
       {/* Tabla de válvulas */}
       <Card style={{ backgroundColor: "#F9F6F3", borderColor: "#A6B28B" }}>
@@ -517,7 +568,7 @@ export function ValvulasManagement() {
                               {valvula.name}
                             </div>
                             <div className="text-sm truncate" style={{ color: "#A6B28B" }}>
-                              Creado: {new Date(valvula.lastActivity).toLocaleDateString()}
+                              Creado: {valvula.lastActivity ? new Date(valvula.lastActivity).toLocaleDateString() : "N/A"}
                             </div>
                           </div>
                         </div>

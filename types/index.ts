@@ -59,20 +59,16 @@ export interface Lote {
 
 export interface Valvula {
   id: number
-  name: string
-  deviceId: string
-  fincaId: number
-  loteId: number
-  isOpen: boolean
-  flowRate: number
-  status: "active" | "maintenance"
-  coordinates: LoteCoordinate
-  lastActivity: Date
-  tipo: "aspersion" | "goteo" | "microaspersion"
+  nombre: string
+  deviceId: number
+  estado: string
+  updatedAt: string
+  isActive: boolean
   caudal: number
   presion: number
   descripcion?: string
-  createdAt: Date
+  createdAt: string
+  fincaId: number
 }
 
 export interface Sensor {
