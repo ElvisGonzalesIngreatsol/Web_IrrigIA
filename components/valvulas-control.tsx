@@ -106,7 +106,7 @@ export function ValvulasControl() {
     showSuccess("Actualizado", "Estado de las válvulas actualizado")
   }
 
-  const activeValvulas = filteredValvulas.filter((v) => v.estado)
+  const activeValvulas = filteredValvulas.filter((v) => v.estado == "ABIERTA")
   const maintenanceValvulas = filteredValvulas.filter((v) => v.isActive === false)
   const totalFlow = activeValvulas.reduce((sum, v) => sum + (v.caudal || 0), 0)
 
@@ -303,12 +303,12 @@ export function ValvulasControl() {
                     <CardTitle className="text-sm sm:text-base truncate">{valvula.nombre}</CardTitle>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {valvula.estado === "maintenance" && <AlertTriangle className="h-4 w-4 text-orange-500" />}
+                    {valvula.estado === "ERROR" && <AlertTriangle className="h-4 w-4 text-orange-500" />}
                     <div
                       className={`w-3 h-3 rounded-full ${
                         valvula.isActive
                           ? "bg-blue-500 animate-pulse"
-                          : valvula.estado === "maintenance"
+                          : valvula.estado === "ERROR"
                           ? "bg-orange-500"
                           : "bg-gray-400"
                       }`}
@@ -338,22 +338,22 @@ export function ValvulasControl() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                 {/*  <div className="flex items-center justify-between text-sm">
                     <span className="truncate">Tipo:</span>
                     <Badge variant="outline" className="text-xs">
                       {getValvulaTypeName(valvula.estado)}
                     </Badge>
-                  </div>
+                  </div> */}
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="truncate">Estado:</span>
                     <Badge
                       variant={
-                        valvula.estado === "maintenance" ? "destructive" : valvula.isActive ? "default" : "secondary"
+                        valvula.estado === "ERROR" ? "destructive" : valvula.isActive ? "default" : "secondary"
                       }
                       className="text-xs"
                     >
-                      {valvula.estado === "maintenance" ? "Mantenimiento" : valvula.isActive ? "Regando" : "Detenida"}
+                      {valvula.estado === "ABIERTA" ? "Regando" : "Detenida"}
                     </Badge>
                   </div>
 
@@ -365,10 +365,10 @@ export function ValvulasControl() {
                   {valvula.estado && (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="truncate">Rendimiento:</span>
+                        {/* <span className="truncate">Rendimiento:</span>
                         <span className="text-xs">
                           {Math.round(((valvula.caudal || 0) / (valvula.caudal || 1)) * 100)}%
-                        </span>
+                        </span> */}
                       </div>
                       <Progress value={((valvula.caudal || 0) / (valvula.caudal || 1)) * 100} className="h-1" />
                     </div>
@@ -387,7 +387,7 @@ export function ValvulasControl() {
                 <div className="flex items-center justify-between pt-2 border-t gap-2">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <Switch
-                      checked={valvula.estado}
+                      checked={valvula.estado == "ABIERTA" ? true :  false}
                       onCheckedChange={() => handleToggleValvula(valvula.id)}
                       disabled={valvula.isActive === false}
                     />
@@ -395,12 +395,12 @@ export function ValvulasControl() {
                   </div>
                   <Button
                     size="sm"
-                    variant={valvula.estado ? "destructive" : "default"}
+                    variant={valvula.estado == "ERROR" ? "destructive" : "default"}
                     onClick={() => handleToggleValvula(valvula.id)}
                     disabled={valvula.isActive === false}
                     className="flex-shrink-0"
                   >
-                    {valvula.estado ? (
+                    {valvula.estado == "ABIERTA" ? (
                       <>
                         <Square className="h-3 w-3 sm:mr-1" />
                         <span className="hidden sm:inline">Detener</span>
