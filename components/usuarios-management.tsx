@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { useData } from "@/contexts/data-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -101,7 +102,6 @@ export function UsuariosManagement() {
   const [submitting, setSubmitting] = useState(false)
   const [resettingPassword, setResettingPassword] = useState<Record<number, boolean>>({})
   const [temporaryPasswords, setTemporaryPasswords] = useState<Record<number, string>>({})
-
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({})
