@@ -303,7 +303,7 @@ class ApiService {
 
   async getAllFincas(params?: any): Promise<ApiResponse<any[]>> {
     const queryString = params ? `?${new URLSearchParams(params).toString()}` : ""
-    return this.request(`/api/fincas${queryString}`)
+    return this.request(`/api/fincas/all${queryString}`)
   }
 
   // Farm management endpoints
