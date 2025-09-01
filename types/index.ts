@@ -13,6 +13,20 @@ export interface User {
   createdAt: Date
 }
 
+export enum Role{
+  USER = 'USER',
+  ADMIN = 'ADMIN'
+};
+
+export enum EstadoValvula {
+  ABIERTA = "ABIERTA",
+  CERRADA = "CERRADA",
+  PARCIAL = "PARCIAL",
+  ERROR = "ERROR"
+}
+
+
+
 export interface Coordinate {
   lat: number
   lng: number

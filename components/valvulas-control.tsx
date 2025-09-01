@@ -39,7 +39,7 @@ export function ValvulasControl() {
         setValvulas(valvulasResponse.data.data || [])
         // Si no hay una finca seleccionada, selecciona la primera por defecto si existe
         if (selectedFincaId === "all" && fincasResponse.data && fincasResponse.data.length > 0) {
-          setSelectedFincaId(fincasResponse.data[0].id)
+          setSelectedFincaId(fincasResponse.data[0].id.toString())
         }
       } else {
         setError(fincasResponse.error || valvulasResponse.error || "Error al cargar datos")
