@@ -59,7 +59,7 @@ export function FincasManagement() {
       setError(null)
       console.log("[v0] Fetching fincas from backend...")
       const fincasData = await apiService.getFincas()
-      setFincas(Array.isArray(fincasData) ? fincasData : [])
+      setFincas(Array.isArray(fincasData.data) ? fincasData.data : [])
       console.log("[v0] Fincas loaded successfully:", Array.isArray(fincasData) ? fincasData.length : 0)
     } catch (err) {
       console.error("[v0] Error fetching fincas:", err)
