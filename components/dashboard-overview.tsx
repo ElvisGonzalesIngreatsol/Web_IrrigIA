@@ -77,15 +77,15 @@ export function DashboardOverview() {
       userSensors.filter((s) => s.type === "humidity").length || 0
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Header con información del usuario */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[rgba(28,53,45,1)]">
+        <div className="space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[rgba(28,53,45,1)] mb-2">
             ¡Bienvenido, {user?.name?.split(" ")[0] || "Usuario"}! 🌱
           </h1>
-          <p className="text-muted-foreground">
-            {user?.role === "admin"
+          <p className="text-muted-foreground pl-1">
+            {user?.role === "ADMIN"
               ? "Panel de administración del sistema de riego"
               : `Gestión de tu plantación de banano`}
           </p>
@@ -106,47 +106,47 @@ export function DashboardOverview() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Fincas Activas</CardTitle>
+            <CardTitle className="text-sm font-medium px-1">Fincas Activas</CardTitle>
             <MapPin className="h-4 w-4 text-green-500" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-4">
             <div className="text-2xl font-bold text-green-600">{userFincas.length}</div>
-            <p className="text-xs text-muted-foreground">{totalArea.toFixed(1)} Ha total</p>
+            <p className="text-xs text-muted-foreground mt-1">{totalArea.toFixed(1)} Ha total</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Válvulas Regando</CardTitle>
+            <CardTitle className="text-sm font-medium px-1">Válvulas Regando</CardTitle>
             <Droplets className="h-4 w-4 text-blue-500" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-4">
             <div className="text-2xl font-bold text-blue-600">{activeValvulas.length}</div>
-            <p className="text-xs text-muted-foreground">de {userValvulas.length} válvulas</p>
+            <p className="text-xs text-muted-foreground mt-1">de {userValvulas.length} válvulas</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Flujo Total</CardTitle>
+            <CardTitle className="text-sm font-medium px-1">Flujo Total</CardTitle>
             <Activity className="h-4 w-4 text-cyan-500" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-4">
             <div className="text-2xl font-bold text-cyan-600">{totalWaterFlow.toFixed(1)}</div>
-            <p className="text-xs text-muted-foreground">L/min</p>
+            <p className="text-xs text-muted-foreground mt-1">L/min</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Alertas</CardTitle>
+            <CardTitle className="text-sm font-medium px-1">Alertas</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-4">
             <div className="text-2xl font-bold text-orange-600">
               {maintenanceValvulas.length + warningSensors.length + highPrioritySuggestions.length}
             </div>
-            <p className="text-xs text-muted-foreground">requieren atención</p>
+            <p className="text-xs text-muted-foreground mt-1">requieren atención</p>
           </CardContent>
         </Card>
       </div>

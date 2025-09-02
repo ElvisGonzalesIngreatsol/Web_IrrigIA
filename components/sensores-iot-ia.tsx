@@ -528,3 +528,5 @@ export function SensoresIoTIA() {
     </div>
   )
 }
+
+export { SensoresIoTIA as SensoresIotIa }

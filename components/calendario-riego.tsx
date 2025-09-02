@@ -95,7 +95,7 @@ export function CalendarioRiego() {
   }
 
   const userFincas = useMemo(() => {
-    if (user?.role === "admin") {
+    if (user?.role === "ADMIN") {
       return fincas
     }
 
@@ -109,7 +109,7 @@ export function CalendarioRiego() {
   }, [fincas, user])
 
   const autoSelectedFinca = useMemo(() => {
-    if (user?.role === "client" && userFincas.length === 1) {
+    if (user?.role === "USER" && userFincas.length === 1) {
       return userFincas[0].id
     }
     return selectedFinca
@@ -121,7 +121,7 @@ export function CalendarioRiego() {
   const availableValvulas = selectedLoteData?.valvulas || []
 
   useEffect(() => {
-    if (user?.role === "client" && userFincas.length === 1 && availableLotes.length > 0 && !selectedLote) {
+    if (user?.role === "USER" && userFincas.length === 1 && availableLotes.length > 0 && !selectedLote) {
       const firstLote = availableLotes[0]
       setSelectedLote(firstLote.id)
       setNewSchedule((prev) => ({ ...prev, loteId: firstLote.id }))
@@ -243,7 +243,7 @@ export function CalendarioRiego() {
   }
 
   const filteredSchedules = useMemo(() => {
-    if (user?.role === "admin") {
+    if (user?.role === "ADMIN") {
       return schedules
     }
 
@@ -303,33 +303,33 @@ export function CalendarioRiego() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[rgba(28,53,45,1)]">
-            {user?.role === "client" ? "Mi Calendario de Riego" : "Calendario de Riego"}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+        <div className="space-y-3">
+          <h1 className="text-3xl font-bold tracking-tight text-[rgba(28,53,45,1)] leading-tight">
+            {user?.role === "USER" ? "Mi Calendario de Riego" : "Calendario de Riego"}
           </h1>
-          <p className="text-muted-foreground">
-            {user?.role === "client"
+          <p className="text-muted-foreground text-base leading-relaxed">
+            {user?.role === "USER"
               ? "Visualiza y gestiona los horarios de riego de tu finca"
               : "Programa y gestiona los horarios de riego automático"}
           </p>
-          {user?.role === "client" && userFincas.length === 1 && (
-            <div className="mt-2 flex items-center gap-2">
+          {user?.role === "USER" && userFincas.length === 1 && (
+            <div className="mt-3 flex items-center gap-2">
               <Badge
                 variant="outline"
-                className="bg-[rgba(166,178,139,0.1)] text-[rgba(28,53,45,1)] border-[rgba(166,178,139,1)]"
+                className="bg-[rgba(166,178,139,0.1)] text-[rgba(28,53,45,1)] border-[rgba(166,178,139,1)] px-4 py-2"
               >
                 📍 {userFincas[0].name} - {userFincas[0].location}
               </Badge>
             </div>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <div className="flex rounded-lg border p-1 bg-[rgba(166,178,139,1)]">
             <Button
-              className=""
+              className="px-4 py-2"
               variant={viewMode === "calendar" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("calendar")}
@@ -338,7 +338,7 @@ export function CalendarioRiego() {
               Mes
             </Button>
             <Button
-              className=""
+              className="px-4 py-2"
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("list")}
@@ -350,28 +350,32 @@ export function CalendarioRiego() {
 
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="px-6 py-2">
                 <Plus className="h-4 w-4 mr-2" />
                 Nuevo Programa
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Nuevo Programa de Riego</DialogTitle>
-                <DialogDescription>Configura un nuevo programa de riego automático</DialogDescription>
+            <DialogContent className="max-w-2xl p-8">
+              <DialogHeader className="space-y-3">
+                <DialogTitle className="text-xl font-semibold">Nuevo Programa de Riego</DialogTitle>
+                <DialogDescription className="text-base">
+                  Configura un nuevo programa de riego automático
+                </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
-                  {(user?.role === "admin" || userFincas.length > 1) && (
-                    <div className="space-y-2">
-                      <Label htmlFor="finca">Finca</Label>
+              <div className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-3">
+                  {(user?.role === "ADMIN" || userFincas.length > 1) && (
+                    <div className="space-y-3">
+                      <Label htmlFor="finca" className="text-sm font-medium">
+                        Finca
+                      </Label>
                       <Select value={autoSelectedFinca} onValueChange={handleFincaChange}>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue placeholder="Selecciona una finca" />
                         </SelectTrigger>
                         <SelectContent>
                           {userFincas.map((finca) => (
-                            <SelectItem key={finca.id} value={finca.id}>
+                            <SelectItem key={finca.id} value={finca.id} className="py-3">
                               {finca.name}
                             </SelectItem>
                           ))}
@@ -380,22 +384,24 @@ export function CalendarioRiego() {
                     </div>
                   )}
 
-                  {user?.role === "client" && userFincas.length === 1 && (
-                    <div className="space-y-2">
-                      <Label>Finca</Label>
-                      <div className="p-2 bg-muted rounded-md text-sm">{userFincas[0].name}</div>
+                  {user?.role === "USER" && userFincas.length === 1 && (
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium">Finca</Label>
+                      <div className="p-3 bg-muted rounded-md text-sm font-medium">{userFincas[0].name}</div>
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="lote">Lote</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="lote" className="text-sm font-medium">
+                      Lote
+                    </Label>
                     <Select value={selectedLote} onValueChange={handleLoteChange}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11">
                         <SelectValue placeholder="Selecciona un lote" />
                       </SelectTrigger>
                       <SelectContent>
                         {availableLotes.map((lote) => (
-                          <SelectItem key={lote.id} value={lote.id}>
+                          <SelectItem key={lote.id} value={lote.id} className="py-3">
                             {lote.name} - {lote.cropType}
                           </SelectItem>
                         ))}
@@ -405,11 +411,17 @@ export function CalendarioRiego() {
                 </div>
 
                 {availableValvulas.length > 0 && (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <Label className="text-base font-medium">Seleccionar Válvulas</Label>
-                      <div className="flex gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => handleSelectAllValvulas(true)}>
+                      <Label className="text-base font-semibold">Seleccionar Válvulas</Label>
+                      <div className="flex gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSelectAllValvulas(true)}
+                          className="px-4 py-2"
+                        >
                           Seleccionar Todas
                         </Button>
                         <Button
@@ -417,14 +429,15 @@ export function CalendarioRiego() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleSelectAllValvulas(false)}
+                          className="px-4 py-2"
                         >
                           Deseleccionar Todas
                         </Button>
                       </div>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 max-h-48 overflow-y-auto border rounded-lg p-3">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 max-h-48 overflow-y-auto border rounded-lg p-4">
                       {availableValvulas.map((valvula) => (
-                        <div key={valvula.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md">
+                        <div key={valvula.id} className="flex items-center space-x-3 p-3 hover:bg-muted/50 rounded-md">
                           <input
                             type="checkbox"
                             id={`valvula-${valvula.id}`}
@@ -438,7 +451,7 @@ export function CalendarioRiego() {
                           >
                             <div className="flex items-center justify-between">
                               <span>{valvula.name}</span>
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs px-2 py-1">
                                 {valvula.flowRate} L/min
                               </Badge>
                             </div>
@@ -453,36 +466,44 @@ export function CalendarioRiego() {
                         </div>
                       ))}
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground font-medium">
                       {newSchedule.valvulaIds.length} de {availableValvulas.length} válvulas seleccionadas
                     </div>
                   </div>
                 )}
 
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Fecha de Inicio</Label>
+                <div className="grid gap-6 md:grid-cols-3">
+                  <div className="space-y-3">
+                    <Label htmlFor="startDate" className="text-sm font-medium">
+                      Fecha de Inicio
+                    </Label>
                     <Input
                       id="startDate"
                       type="date"
                       value={newSchedule.startDate}
                       min={new Date().toISOString().split("T")[0]}
                       onChange={(e) => setNewSchedule((prev) => ({ ...prev, startDate: e.target.value }))}
+                      className="h-11"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="startTime">Hora de Inicio</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="startTime" className="text-sm font-medium">
+                      Hora de Inicio
+                    </Label>
                     <Input
                       id="startTime"
                       type="time"
                       value={newSchedule.startTime}
                       onChange={(e) => setNewSchedule((prev) => ({ ...prev, startTime: e.target.value }))}
+                      className="h-11"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">Duración (minutos)</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="duration" className="text-sm font-medium">
+                      Duración (minutos)
+                    </Label>
                     <Input
                       id="duration"
                       type="number"
@@ -492,31 +513,40 @@ export function CalendarioRiego() {
                       onChange={(e) =>
                         setNewSchedule((prev) => ({ ...prev, duration: Number.parseInt(e.target.value) }))
                       }
+                      className="h-11"
                     />
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="frequency">Frecuencia</Label>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <Label htmlFor="frequency" className="text-sm font-medium">
+                      Frecuencia
+                    </Label>
                     <Select
                       value={newSchedule.frequency}
                       onValueChange={(value: "daily" | "weekly" | "custom") =>
                         setNewSchedule((prev) => ({ ...prev, frequency: value }))
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="daily">Diario</SelectItem>
-                        <SelectItem value="weekly">Semanal</SelectItem>
-                        <SelectItem value="custom">Personalizado</SelectItem>
+                        <SelectItem value="daily" className="py-3">
+                          Diario
+                        </SelectItem>
+                        <SelectItem value="weekly" className="py-3">
+                          Semanal
+                        </SelectItem>
+                        <SelectItem value="custom" className="py-3">
+                          Personalizado
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  <div className="flex items-center space-x-2 pt-6">
+                  <div className="flex items-center space-x-3 pt-8">
                     <input
                       type="checkbox"
                       id="isActive"
@@ -524,17 +554,17 @@ export function CalendarioRiego() {
                       onChange={(e) => setNewSchedule((prev) => ({ ...prev, isActive: e.target.checked }))}
                       className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                     />
-                    <Label htmlFor="isActive" className="cursor-pointer">
+                    <Label htmlFor="isActive" className="cursor-pointer text-sm font-medium">
                       Activar programa inmediatamente
                     </Label>
                   </div>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              <DialogFooter className="gap-3 pt-6">
+                <Button variant="outline" onClick={() => setShowAddDialog(false)} className="px-6 py-2">
                   Cancelar
                 </Button>
-                <Button onClick={handleAddSchedule}>
+                <Button onClick={handleAddSchedule} className="px-6 py-2">
                   <Plus className="h-4 w-4 mr-2" />
                   Crear Programa
                 </Button>
@@ -545,71 +575,71 @@ export function CalendarioRiego() {
       </div>
 
       {/* Estadísticas */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {user?.role === "client" ? "Mis Programas Activos" : "Programas Activos"}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="p-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {user?.role === "USER" ? "Mis Programas Activos" : "Programas Activos"}
             </CardTitle>
-            <Play className="h-4 w-4 text-green-600" />
+            <Play className="h-5 w-5 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{activeSchedules}</div>
-            <p className="text-xs text-muted-foreground">de {totalSchedules} programas totales</p>
+          <CardContent className="pt-0">
+            <div className="text-3xl font-bold text-green-600 mb-2">{activeSchedules}</div>
+            <p className="text-sm text-muted-foreground">de {totalSchedules} programas totales</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Próxima Ejecución</CardTitle>
-            <CardDescription>
-              {user?.role === "client" ? "Tu próximo riego programado" : "Verifica la próxima ejecución programada"}
+        <Card className="p-1">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-semibold">Próxima Ejecución</CardTitle>
+            <CardDescription className="text-sm leading-relaxed">
+              {user?.role === "USER" ? "Tu próximo riego programado" : "Verifica la próxima ejecución programada"}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+          <CardContent className="pt-0">
+            <div className="text-3xl font-bold text-blue-600 mb-2">
               {filteredSchedules.filter((s) => s.isActive).length > 0
                 ? new Date(
                     Math.min(...filteredSchedules.filter((s) => s.isActive).map((s) => s.nextExecution.getTime())),
                   ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                 : "--:--"}
             </div>
-            <p className="text-xs text-muted-foreground">siguiente riego programado</p>
+            <p className="text-sm text-muted-foreground">siguiente riego programado</p>
           </CardContent>
         </Card>
       </div>
 
       {viewMode === "calendar" && (
-        <Card>
-          <CardHeader>
+        <Card className="p-1">
+          <CardHeader className="pb-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button variant="outline" size="sm" onClick={goToToday}>
+              <div className="flex items-center gap-6">
+                <Button variant="outline" size="sm" onClick={goToToday} className="px-4 py-2 bg-transparent">
                   Hoy
                 </Button>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => navigateMonth("prev")}>
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm" onClick={() => navigateMonth("prev")} className="p-2">
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <h2 className="text-xl font-semibold">
+                  <h2 className="text-xl font-semibold px-4">
                     {monthNames[currentDate.getMonth()]} DE {currentDate.getFullYear()}
                   </h2>
-                  <Button variant="outline" size="sm" onClick={() => navigateMonth("next")}>
+                  <Button variant="outline" size="sm" onClick={() => navigateMonth("next")} className="p-2">
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-1 mb-4">
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-7 gap-2 mb-6">
               {dayNames.map((day) => (
-                <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
+                <div key={day} className="p-3 text-center text-sm font-semibold text-muted-foreground">
                   {day}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-2">
               {generateCalendarDays().map((date, index) => {
                 const isCurrentMonth = date.getMonth() === currentDate.getMonth()
                 const isToday = date.toDateString() === new Date().toDateString()
@@ -618,12 +648,12 @@ export function CalendarioRiego() {
                 return (
                   <div
                     key={index}
-                    className={`min-h-[100px] p-1 border rounded-lg ${
+                    className={`min-h-[100px] p-2 border rounded-lg ${
                       isCurrentMonth ? "bg-background" : "bg-muted/30"
                     } ${isToday ? "ring-2 ring-primary" : ""}`}
                   >
                     <div
-                      className={`text-sm font-medium mb-1 ${
+                      className={`text-sm font-semibold mb-2 ${
                         isCurrentMonth ? "text-foreground" : "text-muted-foreground"
                       }`}
                     >
@@ -642,7 +672,7 @@ export function CalendarioRiego() {
                         )
                       })}
                       {daySchedules.length > 3 && (
-                        <div className="text-xs text-muted-foreground">+{daySchedules.length - 3} más</div>
+                        <div className="text-xs text-muted-foreground font-medium">+{daySchedules.length - 3} más</div>
                       )}
                     </div>
                   </div>
@@ -655,32 +685,34 @@ export function CalendarioRiego() {
 
       {/* Lista de programas */}
       {viewMode === "list" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{user?.role === "client" ? "Mis Programas de Riego" : "Programas de Riego"}</CardTitle>
-            <CardDescription>
-              {user?.role === "client"
+        <Card className="p-1">
+          <CardHeader className="pb-6">
+            <CardTitle className="text-xl font-semibold">
+              {user?.role === "USER" ? "Mis Programas de Riego" : "Programas de Riego"}
+            </CardTitle>
+            <CardDescription className="text-base leading-relaxed">
+              {user?.role === "USER"
                 ? "Gestiona los programas de riego de tu finca"
                 : "Gestiona todos los programas de riego configurados"}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             {filteredSchedules.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {filteredSchedules.map((schedule) => {
                   const valvulaInfo = getValvulaInfo(schedule.valvulaId)
                   return (
-                    <div key={schedule.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <Calendar className="h-4 w-4 text-blue-600" />
+                    <div key={schedule.id} className="flex items-center justify-between p-6 border rounded-lg">
+                      <div className="flex items-center gap-6">
+                        <div className="p-3 bg-blue-100 rounded-lg">
+                          <Calendar className="h-5 w-5 text-blue-600" />
                         </div>
-                        <div>
-                          <p className="font-medium">
+                        <div className="space-y-2">
+                          <p className="font-semibold text-base">
                             {valvulaInfo?.name} - {valvulaInfo?.loteName}
                           </p>
-                          {user?.role === "admin" && (
-                            <p className="text-xs text-muted-foreground">Finca: {valvulaInfo?.fincaName}</p>
+                          {user?.role === "ADMIN" && (
+                            <p className="text-sm text-muted-foreground">Finca: {valvulaInfo?.fincaName}</p>
                           )}
                           <p className="text-sm text-muted-foreground">
                             {schedule.startTime} • {schedule.duration} min • {getFrequencyText(schedule.frequency)}
@@ -691,8 +723,8 @@ export function CalendarioRiego() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <Badge variant={schedule.isActive ? "default" : "secondary"}>
+                      <div className="flex items-center gap-4">
+                        <Badge variant={schedule.isActive ? "default" : "secondary"} className="px-3 py-1">
                           {schedule.isActive ? "Activo" : "Inactivo"}
                         </Badge>
 
@@ -713,12 +745,18 @@ export function CalendarioRiego() {
                               duration: 3000,
                             })
                           }}
+                          className="p-2"
                         >
-                          <Edit className="h-3 w-3" />
+                          <Edit className="h-4 w-4" />
                         </Button>
 
-                        <Button variant="outline" size="sm" onClick={() => handleDeleteSchedule(schedule.id)}>
-                          <Trash2 className="h-3 w-3" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteSchedule(schedule.id)}
+                          className="p-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -726,16 +764,20 @@ export function CalendarioRiego() {
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>
-                  {user?.role === "client"
+              <div className="text-center py-12 text-muted-foreground">
+                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium mb-2">
+                  {user?.role === "USER"
                     ? "No tienes programas de riego configurados"
                     : "No hay programas de riego configurados"}
                 </p>
-                <Button variant="outline" className="mt-2 bg-transparent" onClick={() => setShowAddDialog(true)}>
+                <Button
+                  variant="outline"
+                  className="mt-4 bg-transparent px-6 py-2"
+                  onClick={() => setShowAddDialog(true)}
+                >
                   <Plus className="h-4 w-4 mr-2" />
-                  {user?.role === "client" ? "Crear Mi Primer Programa" : "Crear Primer Programa"}
+                  {user?.role === "USER" ? "Crear Mi Primer Programa" : "Crear Primer Programa"}
                 </Button>
               </div>
             )}

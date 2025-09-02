@@ -1,6 +1,8 @@
 "use client"
 
 import { useAuth } from "@/contexts/auth-context"
+import { usePathname } from "next/navigation"
+import Link from "next/link"
 import {
   Sidebar,
   SidebarContent,
@@ -31,49 +33,41 @@ import {
   Brain,
   User,
 } from "lucide-react"
-import type { ViewType } from "./main-router"
 
-interface AppSidebarProps {
-  currentView: ViewType
-  onViewChange: (view: ViewType) => void
-}
-
-export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
+export function AppSidebar() {
   const { user, logout } = useAuth()
-
-  console.log("[v0] Sidebar - Current user:", user)
-  console.log("[v0] Sidebar - User role:", user?.role)
+  const pathname = usePathname()
 
   const clientMenuItems = [
     {
       title: "Dashboard",
       icon: LayoutDashboard,
-      view: "dashboard" as ViewType,
+      href: "/dashboard",
     },
     {
       title: "Sensores IoT & IA",
       icon: Brain,
-      view: "sensores-iot-ia" as ViewType,
+      href: "/sensores-iot-ia",
     },
     {
       title: "Control de Válvulas",
       icon: Droplets,
-      view: "valvulas" as ViewType,
+      href: "/valvulas",
     },
     {
       title: "Calendario de Riego",
       icon: Calendar,
-      view: "calendario" as ViewType,
+      href: "/calendario",
     },
     {
       title: "Mapa en Tiempo Real",
       icon: Map,
-      view: "mapa" as ViewType,
+      href: "/mapa",
     },
     {
       title: "Gestión de Lotes y Válvulas",
       icon: Layers,
-      view: "lotes-valvulas" as ViewType,
+      href: "/lotes-valvulas",
     },
   ]
 
@@ -81,53 +75,51 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
     {
       title: "Dashboard",
       icon: LayoutDashboard,
-      view: "dashboard" as ViewType,
+      href: "/dashboard",
     },
     {
       title: "Sensores",
       icon: Thermometer,
-      view: "sensores" as ViewType,
+      href: "/sensores",
     },
     {
       title: "Control de Válvulas",
       icon: Droplets,
-      view: "valvulas" as ViewType,
+      href: "/valvulas",
     },
     {
       title: "Calendario de Riego",
       icon: Calendar,
-      view: "calendario" as ViewType,
+      href: "/calendario",
     },
     {
       title: "Mapa en Tiempo Real",
       icon: Map,
-      view: "mapa" as ViewType,
+      href: "/mapa",
     },
     {
       title: "Monitoreo Avanzado",
       icon: Monitor,
-      view: "monitoreo" as ViewType,
+      href: "/monitoreo",
     },
     {
       title: "Gestión de Fincas",
       icon: Building2,
-      view: "fincas" as ViewType,
+      href: "/fincas",
     },
     {
       title: "Gestión de Lotes y Válvulas",
       icon: Layers,
-      view: "lotes-valvulas" as ViewType,
+      href: "/lotes-valvulas",
     },
     {
       title: "Gestión de Usuarios",
       icon: Users,
-      view: "usuarios" as ViewType,
+      href: "/usuarios",
     },
   ]
 
   const menuItems = user?.role === "ADMIN" ? adminMenuItems : clientMenuItems
-
-  console.log("[v0] Sidebar - Selected menu items:", user?.role === "ADMIN" ? "admin" : "client")
 
   return (
     <Sidebar>
@@ -149,10 +141,12 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
-                <SidebarMenuItem key={item.view}>
-                  <SidebarMenuButton isActive={currentView === item.view} onClick={() => onViewChange(item.view)}>
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.title}</span>
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton asActive={pathname === item.href} asChild>
+                    <Link href={item.href}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -185,9 +179,11 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" className="w-[--radix-popper-anchor-width]">
-                <DropdownMenuItem onClick={() => onViewChange("profile")}>
-                  <User className="h-4 w-4 mr-2" />
-                  Mi Perfil
+                <DropdownMenuItem asChild>
+                  <Link href="/profile">
+                    <User className="h-4 w-4 mr-2" />
+                    Mi Perfil
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={logout}>
                   <LogOut className="h-4 w-4 mr-2" />

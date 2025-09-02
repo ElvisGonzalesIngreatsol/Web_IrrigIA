@@ -57,7 +57,7 @@ export function SensoresDashboard() {
 
   // Establecer finca por defecto si es cliente
   useEffect(() => {
-    if (user?.role === "client" && user.fincaId && selectedFincaId === "all") {
+    if (user?.role === "USER" && user.fincaId && selectedFincaId === "all") {
       setSelectedFincaId(user.fincaId)
     }
   }, [user, selectedFincaId])
@@ -120,35 +120,44 @@ export function SensoresDashboard() {
   const offlineSensors = filteredSensors.filter((s) => s.status === "offline")
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[rgba(28,53,45,1)]">Dashboard de Sensores</h1>
-          <p className="text-muted-foreground">
+    <div className="space-y-8 p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+        <div className="space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[rgba(28,53,45,1)] leading-tight">
+            Dashboard de Sensores
+          </h1>
+          <p className="text-muted-foreground text-base leading-relaxed">
             Monitoreo en tiempo real de las condiciones de tus plantaciones de banano
           </p>
         </div>
-        <Button className="text-black bg-transparent" onClick={handleRefresh} disabled={isRefreshing} variant="outline">
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+        <Button
+          className="text-black bg-transparent px-6 py-3"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          variant="outline"
+        >
+          <RefreshCw className={`h-4 w-4 mr-3 ${isRefreshing ? "animate-spin" : ""}`} />
           Actualizar
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {(user?.role === "admin" || !user?.fincaId) && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">🏢 Filtrar por Finca</CardTitle>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {(user?.role === "ADMIN" || !user?.fincaId) && (
+          <Card className="p-1">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base flex items-center gap-3 font-semibold">🏢 Filtrar por Finca</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <Select value={selectedFincaId} onValueChange={setSelectedFincaId}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="Todas las fincas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas las fincas ({userFincas.length})</SelectItem>
+                  <SelectItem value="all" className="py-3">
+                    Todas las fincas ({userFincas.length})
+                  </SelectItem>
                   {userFincas.map((finca) => (
-                    <SelectItem key={finca.id} value={finca.id}>
+                    <SelectItem key={finca.id} value={finca.id} className="py-3">
                       {finca.name}
                     </SelectItem>
                   ))}
@@ -158,21 +167,23 @@ export function SensoresDashboard() {
           </Card>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">📍 Filtrar por Lote</CardTitle>
+        <Card className="p-1">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base flex items-center gap-3 font-semibold">📍 Filtrar por Lote</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <Select value={selectedLoteId} onValueChange={setSelectedLoteId}>
-              <SelectTrigger>
+              <SelectTrigger className="h-11">
                 <SelectValue placeholder="Todos los lotes" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los lotes ({filteredLotes.length})</SelectItem>
+                <SelectItem value="all" className="py-3">
+                  Todos los lotes ({filteredLotes.length})
+                </SelectItem>
                 {filteredLotes.map((lote) => {
                   const finca = userFincas.find((f) => f.id === lote.fincaId)
                   return (
-                    <SelectItem key={lote.id} value={lote.id}>
+                    <SelectItem key={lote.id} value={lote.id} className="py-3">
                       {lote.name} {selectedFincaId === "all" && finca && `(${finca.name})`}
                     </SelectItem>
                   )
@@ -182,24 +193,24 @@ export function SensoresDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="sm:col-span-2 lg:col-span-1">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">📊 Resumen</CardTitle>
+        <Card className="sm:col-span-2 lg:col-span-1 p-1">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base flex items-center gap-3 font-semibold">📊 Resumen</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span>Sensores mostrados:</span>
-                <span className="font-medium">{filteredSensors.length}</span>
+          <CardContent className="pt-0">
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center py-1">
+                <span className="text-muted-foreground">Sensores mostrados:</span>
+                <span className="font-semibold">{filteredSensors.length}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Lotes incluidos:</span>
-                <span className="font-medium">{filteredLotes.length}</span>
+              <div className="flex justify-between items-center py-1">
+                <span className="text-muted-foreground">Lotes incluidos:</span>
+                <span className="font-semibold">{filteredLotes.length}</span>
               </div>
               {selectedFincaId !== "all" && (
-                <div className="flex justify-between text-blue-600">
+                <div className="flex justify-between items-center py-1 text-blue-600">
                   <span>Finca seleccionada:</span>
-                  <span className="font-medium">{userFincas.find((f) => f.id === selectedFincaId)?.name}</span>
+                  <span className="font-semibold">{userFincas.find((f) => f.id === selectedFincaId)?.name}</span>
                 </div>
               )}
             </div>
@@ -208,88 +219,88 @@ export function SensoresDashboard() {
       </div>
 
       {/* Estadísticas generales */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sensores</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+      <div className="grid gap-6 md:grid-cols-4">
+        <Card className="p-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Sensores</CardTitle>
+            <Activity className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredSensors.length}</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="pt-0">
+            <div className="text-3xl font-bold mb-2">{filteredSensors.length}</div>
+            <p className="text-sm text-muted-foreground">
               {filteredLotes.length} lote{filteredLotes.length !== 1 ? "s" : ""}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">En Línea</CardTitle>
-            <Wifi className="h-4 w-4 text-green-500" />
+        <Card className="p-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">En Línea</CardTitle>
+            <Wifi className="h-5 w-5 text-green-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{onlineSensors.length}</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="pt-0">
+            <div className="text-3xl font-bold text-green-600 mb-2">{onlineSensors.length}</div>
+            <p className="text-sm text-muted-foreground">
               {filteredSensors.length > 0 ? Math.round((onlineSensors.length / filteredSensors.length) * 100) : 0}%
               operativos
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Con Alertas</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+        <Card className="p-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Con Alertas</CardTitle>
+            <AlertTriangle className="h-5 w-5 text-yellow-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{warningSensors.length}</div>
-            <p className="text-xs text-muted-foreground">requieren atención</p>
+          <CardContent className="pt-0">
+            <div className="text-3xl font-bold text-yellow-600 mb-2">{warningSensors.length}</div>
+            <p className="text-sm text-muted-foreground">requieren atención</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Desconectados</CardTitle>
-            <Wifi className="h-4 w-4 text-red-500" />
+        <Card className="p-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Desconectados</CardTitle>
+            <Wifi className="h-5 w-5 text-red-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{offlineSensors.length}</div>
-            <p className="text-xs text-muted-foreground">sin comunicación</p>
+          <CardContent className="pt-0">
+            <div className="text-3xl font-bold text-red-600 mb-2">{offlineSensors.length}</div>
+            <p className="text-sm text-muted-foreground">sin comunicación</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Lista de sensores */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filteredSensors.map((sensor) => {
           const lote = userLotes.find((l) => l.id === sensor.loteId)
           const finca = userFincas.find((f) => f.id === lote?.fincaId)
 
           return (
-            <Card key={sensor.id} className="relative">
-              <CardHeader className="pb-3">
+            <Card key={sensor.id} className="relative p-1">
+              <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     {getSensorIcon(sensor.type)}
-                    <CardTitle className="text-base">{sensor.name}</CardTitle>
+                    <CardTitle className="text-base font-semibold">{sensor.name}</CardTitle>
                   </div>
                   <div className={`w-3 h-3 rounded-full ${getStatusColor(sensor.status)}`} />
                 </div>
-                <CardDescription className="text-xs">
+                <CardDescription className="text-sm mt-2">
                   {lote?.name} - {finca?.name}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center">
-                  <div className={`text-3xl font-bold ${getSensorColor(sensor.type, sensor.value)}`}>
+              <CardContent className="space-y-5 pt-0">
+                <div className="text-center py-2">
+                  <div className={`text-4xl font-bold mb-1 ${getSensorColor(sensor.type, sensor.value)}`}>
                     {sensor.value.toFixed(1)}
                   </div>
-                  <div className="text-sm text-muted-foreground">{sensor.unit}</div>
+                  <div className="text-sm text-muted-foreground font-medium">{sensor.unit}</div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Estado:</span>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-sm py-1">
+                    <span className="text-muted-foreground">Estado:</span>
                     <Badge
                       variant={
                         sensor.status === "online"
@@ -298,6 +309,7 @@ export function SensoresDashboard() {
                             ? "secondary"
                             : "destructive"
                       }
+                      className="px-3 py-1"
                     >
                       {sensor.status === "online"
                         ? "En línea"
@@ -308,35 +320,37 @@ export function SensoresDashboard() {
                   </div>
 
                   {sensor.batteryLevel && (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="flex items-center gap-1">
-                          <Battery className="h-3 w-3" />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm py-1">
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <Battery className="h-4 w-4" />
                           Batería:
                         </span>
-                        <span className={sensor.batteryLevel < 20 ? "text-red-500" : ""}>{sensor.batteryLevel}%</span>
+                        <span className={`font-semibold ${sensor.batteryLevel < 20 ? "text-red-500" : ""}`}>
+                          {sensor.batteryLevel}%
+                        </span>
                       </div>
-                      <Progress value={sensor.batteryLevel} className="h-1" />
+                      <Progress value={sensor.batteryLevel} className="h-2" />
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground py-1">
                     <span>Última lectura:</span>
-                    <span>{sensor.lastReading.toLocaleTimeString("es-EC")}</span>
+                    <span className="font-medium">{sensor.lastReading.toLocaleTimeString("es-EC")}</span>
                   </div>
                 </div>
 
                 {/* Indicador de tendencia */}
-                <div className="flex items-center justify-center pt-2 border-t">
+                <div className="flex items-center justify-center pt-3 border-t">
                   {sensor.value > 0 ? (
-                    <div className="flex items-center gap-1 text-xs text-green-600">
-                      <TrendingUp className="h-3 w-3" />
-                      <span>Estable</span>
+                    <div className="flex items-center gap-2 text-sm text-green-600">
+                      <TrendingUp className="h-4 w-4" />
+                      <span className="font-medium">Estable</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                      <TrendingDown className="h-3 w-3" />
-                      <span>Sin datos</span>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <TrendingDown className="h-4 w-4" />
+                      <span className="font-medium">Sin datos</span>
                     </div>
                   )}
                 </div>
@@ -347,11 +361,11 @@ export function SensoresDashboard() {
       </div>
 
       {filteredSensors.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Activity className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No hay sensores</h3>
-            <p className="text-muted-foreground text-center">
+        <Card className="p-1">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Activity className="h-16 w-16 text-muted-foreground mb-6" />
+            <h3 className="text-xl font-semibold mb-3">No hay sensores</h3>
+            <p className="text-muted-foreground text-center max-w-md leading-relaxed">
               {selectedFincaId !== "all" || selectedLoteId !== "all"
                 ? "No se encontraron sensores con los filtros aplicados"
                 : "No hay sensores configurados en el sistema"}

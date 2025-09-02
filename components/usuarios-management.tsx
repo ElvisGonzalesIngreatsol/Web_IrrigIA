@@ -94,6 +94,58 @@ const showDeleteConfirmation = (userName: string): Promise<boolean> => {
   })
 }
 
+const showNotification = (type: "success" | "error" | "info", title: string, message: string): void => {
+  const notification = document.createElement("div")
+  notification.className =
+    "fixed top-4 right-4 z-50 max-w-sm w-full bg-white rounded-lg shadow-lg border p-4 animate-in slide-in-from-right-full duration-300"
+
+  const iconMap = {
+    success:
+      '<svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>',
+    error:
+      '<svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
+    info: '<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+  }
+
+  const colorMap = {
+    success: "bg-green-50 border-green-200",
+    error: "bg-red-50 border-red-200",
+    info: "bg-blue-50 border-blue-200",
+  }
+
+  notification.innerHTML = `
+    <div class="flex items-start gap-3">
+      <div class="flex-shrink-0 mt-0.5">
+        ${iconMap[type]}
+      </div>
+      <div class="flex-1 min-w-0">
+        <h4 class="text-sm font-semibold text-gray-900 mb-1">${title}</h4>
+        <p class="text-sm text-gray-600">${message}</p>
+      </div>
+      <button class="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors" onclick="this.parentElement.parentElement.remove()">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+  `
+
+  notification.className += ` ${colorMap[type]}`
+  document.body.appendChild(notification)
+
+  // Auto remove after 5 seconds
+  setTimeout(() => {
+    if (notification.parentElement) {
+      notification.style.animation = "slide-out-to-right-full 300ms ease-in forwards"
+      setTimeout(() => {
+        if (notification.parentElement) {
+          document.body.removeChild(notification)
+        }
+      }, 300)
+    }
+  }, 5000)
+}
+
 export function UsuariosManagement() {
   const { fincas } = useData()
   const [users, setUsers] = useState<User[]>([])
@@ -202,18 +254,26 @@ export function UsuariosManagement() {
         const response = await apiService.updateUser(editingUser.id, payload)
         if (response.success) {
           console.log("[v0] User updated successfully")
+          showNotification(
+            "success",
+            "Usuario Actualizado",
+            `El usuario ${formData.name} ha sido actualizado correctamente.`,
+          )
           await fetchUsers() // Refresh the list
         } else {
           setError(response.error || "Error al actualizar usuario")
+          showNotification("error", "Error al Actualizar", response.error || "No se pudo actualizar el usuario.")
           return
         }
       } else {
         const response = await apiService.createUser(payload)
         if (response.success) {
           console.log("[v0] User created successfully")
+          showNotification("success", "Usuario Creado", `El usuario ${formData.name} ha sido creado exitosamente.`)
           await fetchUsers() // Refresh the list
         } else {
           setError(response.error || "Error al crear usuario")
+          showNotification("error", "Error al Crear", response.error || "No se pudo crear el usuario.")
           return
         }
       }
@@ -225,13 +285,14 @@ export function UsuariosManagement() {
         email: "",
         password: "",
         phone: "",
-        role: "", // Reset to empty string
+        role: "",
         fincaId: "",
         isActive: true,
       })
     } catch (error) {
       console.error("[v0] Error submitting user:", error)
       setError("Error de conexión al guardar usuario")
+      showNotification("error", "Error de Conexión", "No se pudo conectar con el servidor. Intente nuevamente.")
     } finally {
       setSubmitting(false)
     }
@@ -252,7 +313,6 @@ export function UsuariosManagement() {
   }
 
   const handleDelete = async (id: number) => {
-    // Changed parameter type to number
     const user = users.find((u) => u.id === id)
     const userName = user?.name || "este usuario"
 
@@ -263,16 +323,19 @@ export function UsuariosManagement() {
         setError(null)
         console.log("[v0] Deleting user:", id)
 
-        const response = await apiService.deleteUser(id) // Pass number directly
+        const response = await apiService.deleteUser(id)
         if (response.success) {
           console.log("[v0] User deleted successfully")
+          showNotification("success", "Usuario Eliminado", `El usuario ${userName} ha sido eliminado correctamente.`)
           await fetchUsers() // Refresh the list
         } else {
           setError(response.error || "Error al eliminar usuario")
+          showNotification("error", "Error al Eliminar", response.error || "No se pudo eliminar el usuario.")
         }
       } catch (error) {
         console.error("[v0] Error deleting user:", error)
         setError("Error de conexión al eliminar usuario")
+        showNotification("error", "Error de Conexión", "No se pudo conectar con el servidor para eliminar el usuario.")
       }
     }
   }
@@ -304,7 +367,12 @@ export function UsuariosManagement() {
           [userId]: response.data!.temporaryPassword,
         }))
 
-        // Show success message
+        showNotification(
+          "success",
+          "Contraseña Reseteada",
+          `Se generó una nueva contraseña temporal para ${users.find((u) => u.id === userId)?.name || "el usuario"}.`,
+        )
+
         const dialog = document.createElement("div")
         dialog.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
         dialog.innerHTML = `
@@ -334,10 +402,12 @@ export function UsuariosManagement() {
         })
       } else {
         setError(response.error || "Error al resetear contraseña")
+        showNotification("error", "Error al Resetear", response.error || "No se pudo resetear la contraseña.")
       }
     } catch (error) {
       console.error("[v0] Error resetting password:", error)
       setError("Error de conexión al resetear contraseña")
+      showNotification("error", "Error de Conexión", "No se pudo conectar con el servidor para resetear la contraseña.")
     } finally {
       setResettingPassword((prev) => ({ ...prev, [userId]: false }))
     }
@@ -355,7 +425,7 @@ export function UsuariosManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -369,9 +439,9 @@ export function UsuariosManagement() {
       )}
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[rgba(28,53,45,1)]">Gestión de Usuarios</h1>
-          <p className="text-muted-foreground">Administra los usuarios del sistema</p>
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[rgba(28,53,45,1)] mb-2">Gestión de Usuarios</h1>
+          <p className="text-muted-foreground pl-1">Administra los usuarios del sistema</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen} modal>
           <DialogTrigger asChild>
@@ -384,9 +454,11 @@ export function UsuariosManagement() {
             className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto"
             onInteractOutside={(e) => e.preventDefault()}
           >
-            <DialogHeader>
-              <DialogTitle>{editingUser ? "Editar Usuario" : "Crear Nuevo Usuario"}</DialogTitle>
-              <DialogDescription>
+            <DialogHeader className="space-y-3">
+              <DialogTitle className="text-lg font-semibold">
+                {editingUser ? "Editar Usuario" : "Crear Nuevo Usuario"}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
                 {editingUser
                   ? "Modifica los datos del usuario seleccionado"
                   : "Completa los datos para crear un nuevo usuario"}
@@ -395,22 +467,28 @@ export function UsuariosManagement() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nombre</Label>
+                  <Label htmlFor="name" className="text-sm font-medium">
+                    Nombre
+                  </Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
+                    className="w-full"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-sm font-medium">
+                    Email
+                  </Label>
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
+                    className="w-full"
                   />
                 </div>
               </div>
@@ -513,7 +591,7 @@ export function UsuariosManagement() {
                 </div>
               </div>
 
-              <DialogFooter className="flex flex-col sm:flex-row gap-2">
+              <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -599,7 +677,7 @@ export function UsuariosManagement() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleResetPassword(user.id)} // Use number ID directly
+                  onClick={() => handleResetPassword(user.id)}
                   className="flex-1"
                   disabled={resettingPassword[user.id]}
                 >
@@ -684,13 +762,11 @@ export function UsuariosManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono">
-                          {temporaryPasswords[user.id] || "••••••••"} {/* Use number ID directly */}
-                        </span>
+                        <span className="text-sm font-mono">{temporaryPasswords[user.id] || "••••••••"}</span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleResetPassword(user.id)} // Use number ID directly
+                          onClick={() => handleResetPassword(user.id)}
                           className="h-6 w-6 p-0"
                           title="Generar nueva contraseña temporal (Solo Admin)"
                           disabled={resettingPassword[user.id]}
@@ -702,7 +778,7 @@ export function UsuariosManagement() {
                           )}
                         </Button>
                         <span className="text-xs text-muted-foreground">
-                          {temporaryPasswords[user.id] ? "Temporal" : "Encriptada"} {/* Use number ID directly */}
+                          {temporaryPasswords[user.id] ? "Temporal" : "Encriptada"}
                         </span>
                       </div>
                     </TableCell>
@@ -713,15 +789,13 @@ export function UsuariosManagement() {
                           Editar
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleDelete(user.id)}>
-                          {" "}
-                          {/* Use number ID directly */}
                           <Trash2 className="h-4 w-4 mr-1" />
                           Eliminar
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleResetPassword(user.id)} // Use number ID directly
+                          onClick={() => handleResetPassword(user.id)}
                           disabled={resettingPassword[user.id]}
                         >
                           {resettingPassword[user.id] ? (
