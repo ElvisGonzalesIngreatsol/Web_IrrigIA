@@ -110,23 +110,30 @@ export function MapaTiempoReal() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[rgba(28,53,45,1)]">Mapa en Tiempo Real</h1>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-[rgba(28,53,45,1)] leading-tight">
+            Mapa en Tiempo Real
+          </h1>
+          <p className="text-muted-foreground leading-relaxed">
             {user?.role === "admin"
               ? "Visualización geográfica de sensores y válvulas en tiempo real"
               : `Monitoreo de ${userFincas.length === 1 ? "tu finca" : "tus fincas"} en tiempo real`}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button className="text-black" variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+        <div className="flex gap-3">
+          <Button
+            className="text-black px-6 py-3 bg-transparent"
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
             {isRefreshing ? "Actualizando..." : "Actualizar"}
           </Button>
-          <Button className="text-black" variant="outline">
+          <Button className="text-black px-6 py-3 bg-transparent" variant="outline">
             <Maximize2 className="h-4 w-4 mr-2" />
             Pantalla Completa
           </Button>
@@ -134,27 +141,29 @@ export function MapaTiempoReal() {
       </div>
 
       {(user?.role === "admin" || userFincas.length > 1) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{user?.role === "admin" ? "Seleccionar Finca" : "Tus Fincas"}</CardTitle>
-            <CardDescription>
+        <Card className="p-1">
+          <CardHeader className="px-6 py-5">
+            <CardTitle className="leading-tight">
+              {user?.role === "admin" ? "Seleccionar Finca" : "Tus Fincas"}
+            </CardTitle>
+            <CardDescription className="leading-relaxed mt-2">
               {user?.role === "admin"
                 ? "Haz clic en el ojo para ubicar la finca en el mapa"
                 : "Haz clic en el ojo para ubicar tu finca en el mapa"}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+          <CardContent className="px-6 pb-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {userFincas.map((finca) => (
-                <div key={finca.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-2">
+                <div key={finca.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
                     <MapPin className="h-4 w-4 text-green-600" />
                     <div>
-                      <p className="font-medium text-sm">{finca.name}</p>
-                      <p className="text-xs text-muted-foreground">{finca.location}</p>
+                      <p className="font-medium text-sm leading-none">{finca.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{finca.location}</p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => handleFocusOnFinca(finca)} className="h-8 w-8 p-0">
+                  <Button variant="outline" size="sm" onClick={() => handleFocusOnFinca(finca)} className="h-9 w-9 p-0">
                     <Eye className="h-4 w-4" />
                   </Button>
                 </div>
@@ -165,24 +174,24 @@ export function MapaTiempoReal() {
       )}
 
       {user?.role === "client" && userFincas.length === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Tu Finca</CardTitle>
-            <CardDescription>Información de tu finca asignada</CardDescription>
+        <Card className="p-1">
+          <CardHeader className="px-6 py-5">
+            <CardTitle className="leading-tight">Tu Finca</CardTitle>
+            <CardDescription className="leading-relaxed mt-2">Información de tu finca asignada</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border-2 border-green-200">
-              <div className="flex items-center gap-3">
+          <CardContent className="px-6 pb-6">
+            <div className="flex items-center justify-between p-5 bg-green-50 rounded-lg border-2 border-green-200">
+              <div className="flex items-center gap-4">
                 <MapPin className="h-5 w-5 text-green-600" />
                 <div>
-                  <p className="font-semibold text-green-800">{userFincas[0].name}</p>
-                  <p className="text-sm text-green-600">{userFincas[0].location}</p>
-                  <p className="text-xs text-green-500">
+                  <p className="font-semibold text-green-800 leading-none">{userFincas[0].name}</p>
+                  <p className="text-sm text-green-600 mt-1 leading-relaxed">{userFincas[0].location}</p>
+                  <p className="text-xs text-green-500 mt-1 leading-relaxed">
                     {userFincas[0].area} Ha • {userFincas[0].lotes?.length || 0} Lotes
                   </p>
                 </div>
               </div>
-              <Badge variant="default" className="bg-green-600">
+              <Badge variant="default" className="bg-green-600 px-3 py-1">
                 Asignada
               </Badge>
             </div>
@@ -190,17 +199,17 @@ export function MapaTiempoReal() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Vista del Mapa</CardTitle>
-          <CardDescription>
+      <Card className="p-1">
+        <CardHeader className="px-6 py-5">
+          <CardTitle className="leading-tight">Vista del Mapa</CardTitle>
+          <CardDescription className="leading-relaxed mt-2">
             {user?.role === "admin"
               ? "Mapa interactivo con ubicaciones reales de fincas, sensores y válvulas"
               : "Mapa interactivo de tu finca con sensores y válvulas"}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="h-[600px] rounded-lg overflow-hidden">
+        <CardContent className="px-6 pb-6">
+          <div className="h-[600px] rounded-lg overflow-hidden border">
             <GoogleMap
               center={mapCenter}
               zoom={mapZoom}
@@ -213,8 +222,12 @@ export function MapaTiempoReal() {
       </Card>
 
       {(user?.role === "admin" || userFincas.length > 1) && (
-        <div className="flex flex-wrap gap-2">
-          <Button variant={selectedFinca === null ? "default" : "outline"} onClick={() => setSelectedFinca(null)}>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant={selectedFinca === null ? "default" : "outline"}
+            onClick={() => setSelectedFinca(null)}
+            className="px-4 py-2"
+          >
             {user?.role === "admin" ? "Todas las Fincas" : "Todas mis Fincas"}
           </Button>
           {userFincas.map((finca) => (
@@ -222,6 +235,7 @@ export function MapaTiempoReal() {
               key={finca.id}
               variant={selectedFinca === finca.id ? "default" : "outline"}
               onClick={() => setSelectedFinca(finca.id)}
+              className="px-4 py-2"
             >
               {finca.name}
             </Button>
@@ -230,24 +244,30 @@ export function MapaTiempoReal() {
       )}
 
       {/* Panel de información */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Estadísticas del Mapa</CardTitle>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="p-1">
+          <CardHeader className="px-6 py-5">
+            <CardTitle className="leading-tight">Estadísticas del Mapa</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm">{user?.role === "admin" ? "Total de Fincas:" : "Mis Fincas:"}</span>
-                <Badge variant="outline">{userFincas.length}</Badge>
+          <CardContent className="px-6 pb-6">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm leading-relaxed">
+                  {user?.role === "admin" ? "Total de Fincas:" : "Mis Fincas:"}
+                </span>
+                <Badge variant="outline" className="px-3 py-1">
+                  {userFincas.length}
+                </Badge>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Total de Lotes:</span>
-                <Badge variant="outline">{userFincas.reduce((acc, f) => acc + (f.lotes?.length || 0), 0)}</Badge>
+              <div className="flex justify-between items-center">
+                <span className="text-sm leading-relaxed">Total de Lotes:</span>
+                <Badge variant="outline" className="px-3 py-1">
+                  {userFincas.reduce((acc, f) => acc + (f.lotes?.length || 0), 0)}
+                </Badge>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Válvulas Activas:</span>
-                <Badge variant="default">
+              <div className="flex justify-between items-center">
+                <span className="text-sm leading-relaxed">Válvulas Activas:</span>
+                <Badge variant="default" className="px-3 py-1">
                   {userFincas.reduce(
                     (acc, f) =>
                       acc +
@@ -259,9 +279,9 @@ export function MapaTiempoReal() {
                   )}
                 </Badge>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Sensores Online:</span>
-                <Badge variant="default">
+              <div className="flex justify-between items-center">
+                <span className="text-sm leading-relaxed">Sensores Online:</span>
+                <Badge variant="default" className="px-3 py-1">
                   {userFincas.reduce(
                     (acc, f) =>
                       acc +
@@ -277,35 +297,35 @@ export function MapaTiempoReal() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Alertas del Mapa</CardTitle>
+        <Card className="p-1">
+          <CardHeader className="px-6 py-5">
+            <CardTitle className="leading-tight">Alertas del Mapa</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-start gap-2 p-2 bg-yellow-50 rounded">
+          <CardContent className="px-6 pb-6">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded">
                 <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
                 <div>
-                  <p className="text-sm font-medium">Sensor pH Fuera de Rango</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm font-medium leading-none">Sensor pH Fuera de Rango</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     {userFincas.length > 0 ? `Lote C - ${userFincas[0].name}` : "Lote C"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-2 p-2 bg-red-50 rounded">
+              <div className="flex items-start gap-3 p-3 bg-red-50 rounded">
                 <div className="w-2 h-2 bg-red-500 rounded-full mt-2"></div>
                 <div>
-                  <p className="text-sm font-medium">Válvula en Mantenimiento</p>
-                  <p className="text-xs text-muted-foreground">Requiere inspección técnica</p>
+                  <p className="text-sm font-medium leading-none">Válvula en Mantenimiento</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">Requiere inspección técnica</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-2 p-2 bg-blue-50 rounded">
+              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded">
                 <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                 <div>
-                  <p className="text-sm font-medium">Riego Programado</p>
-                  <p className="text-xs text-muted-foreground">Próximo riego en 2 horas</p>
+                  <p className="text-sm font-medium leading-none">Riego Programado</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">Próximo riego en 2 horas</p>
                 </div>
               </div>
             </div>

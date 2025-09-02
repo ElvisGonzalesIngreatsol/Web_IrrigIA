@@ -253,18 +253,18 @@ export function MonitoreoAvanzado() {
   const maintenanceValvulas = fincaValvulas.filter((v) => v.status === "maintenance")
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 p-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-[rgba(28,53,45,1)]">Monitoreo Avanzado</h1>
-          <p className="text-muted-foreground">Supervisión en tiempo real de todas las fincas</p>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-[rgba(28,53,45,1)] leading-tight">Monitoreo Avanzado</h1>
+          <p className="text-muted-foreground leading-relaxed">Supervisión en tiempo real de todas las fincas</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
             <Switch checked={isAutoRefresh} onCheckedChange={setIsAutoRefresh} />
-            <span className="text-sm">Auto-actualizar</span>
+            <span className="text-sm leading-none">Auto-actualizar</span>
           </div>
-          <Button className="text-black" variant="outline" size="sm">
+          <Button className="text-black px-6 py-3 bg-transparent" variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Actualizar
           </Button>
@@ -272,17 +272,19 @@ export function MonitoreoAvanzado() {
       </div>
 
       {/* Selector de finca */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+      <Card className="p-1">
+        <CardHeader className="px-6 py-5">
+          <CardTitle className="flex items-center gap-3 text-lg leading-tight">
             <Building2 className="h-5 w-5" />
             Seleccionar Finca
           </CardTitle>
-          <CardDescription>Elige una finca para ver su información detallada</CardDescription>
+          <CardDescription className="leading-relaxed mt-2">
+            Elige una finca para ver su información detallada
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-6 pb-6">
           <Select value={selectedFincaId} onValueChange={setSelectedFincaId}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full py-3 px-4">
               <SelectValue placeholder="Selecciona una finca para monitorear" />
             </SelectTrigger>
             <SelectContent>
@@ -291,15 +293,15 @@ export function MonitoreoAvanzado() {
                 const activeFincaValvulas = valvulas.filter((v) => v.fincaId === finca.id && v.isOpen).length
 
                 return (
-                  <SelectItem key={finca.id} value={finca.id}>
+                  <SelectItem key={finca.id} value={finca.id} className="py-3">
                     <div className="flex items-center justify-between w-full">
-                      <span>{finca.name}</span>
-                      <div className="flex items-center gap-2 ml-4">
-                        <Badge variant="outline" className="text-xs">
+                      <span className="leading-none">{finca.name}</span>
+                      <div className="flex items-center gap-3 ml-6">
+                        <Badge variant="outline" className="text-xs px-2 py-1">
                           {fincaValvulasCount} válvulas
                         </Badge>
                         {activeFincaValvulas > 0 && (
-                          <Badge variant="default" className="text-xs">
+                          <Badge variant="default" className="text-xs px-2 py-1">
                             {activeFincaValvulas} activas
                           </Badge>
                         )}
@@ -316,89 +318,93 @@ export function MonitoreoAvanzado() {
       {selectedFinca && (
         <>
           {/* Estadísticas de la finca seleccionada */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Lotes</CardTitle>
+          <div className="grid gap-6 md:grid-cols-4">
+            <Card className="p-1">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-5 pt-5">
+                <CardTitle className="text-sm font-medium leading-none">Lotes</CardTitle>
                 <Layers className="h-4 w-4 text-green-500" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">{fincaLotes.length}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="px-5 pb-5">
+                <div className="text-2xl font-bold text-green-600 leading-none">{fincaLotes.length}</div>
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
                   {fincaLotes.reduce((sum, l) => sum + l.area, 0).toFixed(1)} Ha total
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Válvulas Activas</CardTitle>
+            <Card className="p-1">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-5 pt-5">
+                <CardTitle className="text-sm font-medium leading-none">Válvulas Activas</CardTitle>
                 <Activity className="h-4 w-4 text-blue-500" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{activeValvulas.length}</div>
-                <p className="text-xs text-muted-foreground">de {fincaValvulas.length} válvulas</p>
+              <CardContent className="px-5 pb-5">
+                <div className="text-2xl font-bold text-blue-600 leading-none">{activeValvulas.length}</div>
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">de {fincaValvulas.length} válvulas</p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Flujo Total</CardTitle>
+            <Card className="p-1">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-5 pt-5">
+                <CardTitle className="text-sm font-medium leading-none">Flujo Total</CardTitle>
                 <Droplets className="h-4 w-4 text-cyan-500" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-cyan-600">{totalFlow.toFixed(1)}</div>
-                <p className="text-xs text-muted-foreground">L/min</p>
+              <CardContent className="px-5 pb-5">
+                <div className="text-2xl font-bold text-cyan-600 leading-none">{totalFlow.toFixed(1)}</div>
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">L/min</p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Mantenimiento</CardTitle>
+            <Card className="p-1">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-5 pt-5">
+                <CardTitle className="text-sm font-medium leading-none">Mantenimiento</CardTitle>
                 <AlertTriangle className="h-4 w-4 text-orange-500" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-orange-600">{maintenanceValvulas.length}</div>
-                <p className="text-xs text-muted-foreground">requieren atención</p>
+              <CardContent className="px-5 pb-5">
+                <div className="text-2xl font-bold text-orange-600 leading-none">{maintenanceValvulas.length}</div>
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">requieren atención</p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-8 lg:grid-cols-3">
             {/* Mapa principal */}
             <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Mapa de {selectedFinca.name}</CardTitle>
-                  <CardDescription>{selectedFinca.location} - Vista satelital con lotes y válvulas</CardDescription>
+              <Card className="p-1">
+                <CardHeader className="px-6 py-5">
+                  <CardTitle className="leading-tight">Mapa de {selectedFinca.name}</CardTitle>
+                  <CardDescription className="leading-relaxed mt-2">
+                    {selectedFinca.location} - Vista satelital con lotes y válvulas
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <GoogleMap
-                    center={selectedFinca.mapCoordinates}
-                    zoom={selectedFinca.mapCoordinates.zoom}
-                    height="500px"
-                    onMapLoad={handleMapLoad}
-                  />
+                <CardContent className="px-6 pb-6">
+                  <div className="rounded-lg overflow-hidden border">
+                    <GoogleMap
+                      center={selectedFinca.mapCoordinates}
+                      zoom={selectedFinca.mapCoordinates.zoom}
+                      height="500px"
+                      onMapLoad={handleMapLoad}
+                    />
+                  </div>
 
                   {/* Leyenda */}
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                    <h4 className="text-sm font-medium mb-2">Leyenda</h4>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-2">
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="text-sm font-medium mb-4 leading-none">Leyenda</h4>
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div className="flex items-center gap-3">
                         <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                        <span>Válvula Regando</span>
+                        <span className="leading-relaxed">Válvula Regando</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <div className="w-3 h-3 rounded-full bg-gray-500"></div>
-                        <span>Válvula Inactiva</span>
+                        <span className="leading-relaxed">Válvula Inactiva</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                        <span>Mantenimiento</span>
+                        <span className="leading-relaxed">Mantenimiento</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <div className="w-4 h-2 bg-green-200 border border-green-500"></div>
-                        <span>Lotes</span>
+                        <span className="leading-relaxed">Lotes</span>
                       </div>
                     </div>
                   </div>
@@ -407,29 +413,29 @@ export function MonitoreoAvanzado() {
             </div>
 
             {/* Panel de información */}
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Información de la finca */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Información de la Finca</CardTitle>
+              <Card className="p-1">
+                <CardHeader className="px-5 py-4">
+                  <CardTitle className="text-lg leading-tight">Información de la Finca</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
+                <CardContent className="px-5 pb-5">
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-sm font-medium">Nombre:</p>
-                      <p className="text-sm text-muted-foreground">{selectedFinca.name}</p>
+                      <p className="text-sm font-medium leading-none mb-1">Nombre:</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{selectedFinca.name}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Ubicación:</p>
-                      <p className="text-sm text-muted-foreground">{selectedFinca.location}</p>
+                      <p className="text-sm font-medium leading-none mb-1">Ubicación:</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{selectedFinca.location}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Área Total:</p>
-                      <p className="text-sm text-muted-foreground">{selectedFinca.area} Ha</p>
+                      <p className="text-sm font-medium leading-none mb-1">Área Total:</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{selectedFinca.area} Ha</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Coordenadas:</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm font-medium leading-none mb-1">Coordenadas:</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
                         {selectedFinca.mapCoordinates.lat.toFixed(4)}, {selectedFinca.mapCoordinates.lng.toFixed(4)}
                       </p>
                     </div>
@@ -438,7 +444,7 @@ export function MonitoreoAvanzado() {
               </Card>
 
               {/* Válvulas activas */}
-              <Card>
+              <Card className="p-1">
                 <CardHeader>
                   <CardTitle className="text-lg">Válvulas Activas</CardTitle>
                   <CardDescription>
@@ -478,7 +484,7 @@ export function MonitoreoAvanzado() {
               </Card>
 
               {/* Alertas */}
-              <Card>
+              <Card className="p-1">
                 <CardHeader>
                   <CardTitle className="text-lg">Alertas y Estado</CardTitle>
                 </CardHeader>

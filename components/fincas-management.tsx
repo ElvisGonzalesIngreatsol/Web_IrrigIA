@@ -197,8 +197,7 @@ export function FincasManagement() {
       latitude: finca.latitude,
       longitude: finca.longitude,
       zoom: 15,
-      coordinates: finca.coordinates
-    
+      coordinates: finca.coordinates,
     })
     setIsDialogOpen(true)
   }
@@ -276,10 +275,12 @@ export function FincasManagement() {
 
   const buildFincaWithLotes = (finca: Finca) => {
     const fincaLotes = fincas.find((f) => f.id === finca.id)?.lotes || []
-    const fincaValvulas = fincas.find((f) => f.id === finca.id) || []
-        ?.lotes.reduce((acc, lote) => {
-          return [...acc, ...(lote.valvulas || [])]
-        }, []) || []
+    const fincaValvulas =
+      fincas.find((f) => f.id === finca.id) ||
+      []?.lotes.reduce((acc, lote) => {
+        return [...acc, ...(lote.valvulas || [])]
+      }, []) ||
+      []
 
     return {
       ...finca,
@@ -319,53 +320,65 @@ export function FincasManagement() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[rgba(28,53,45,1)]">Gestión de Fincas</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Administra las fincas del sistema</p>
+    <div className="space-y-6 p-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-6">
+        <div className="space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[rgba(28,53,45,1)] leading-tight">Gestión de Fincas</h1>
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+            Administra las fincas del sistema
+          </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm} className="w-full sm:w-auto">
+            <Button onClick={resetForm} className="w-full sm:w-auto px-6 py-3">
               <Plus className="h-4 w-4 mr-2" />
               Nueva Finca
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingFinca ? "Editar Finca" : "Crear Nueva Finca"}</DialogTitle>
-              <DialogDescription>
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto p-8">
+            <DialogHeader className="space-y-3 pb-6">
+              <DialogTitle className="text-xl leading-tight">
+                {editingFinca ? "Editar Finca" : "Crear Nueva Finca"}
+              </DialogTitle>
+              <DialogDescription className="leading-relaxed">
                 {editingFinca ? "Modifica los datos de la finca" : "Completa la información de la nueva finca"}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nombre de la Finca *</Label>
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <Label htmlFor="name" className="text-sm font-medium leading-none">
+                    Nombre de la Finca *
+                  </Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Ej: Finca San José"
+                    className="px-4 py-3"
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">Ubicación *</Label>
+                <div className="space-y-3">
+                  <Label htmlFor="location" className="text-sm font-medium leading-none">
+                    Ubicación *
+                  </Label>
                   <Input
                     id="location"
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     placeholder="Ej: Cundinamarca, Colombia"
+                    className="px-4 py-3"
                     required
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="latitude">Latitud *</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <Label htmlFor="latitude" className="text-sm font-medium leading-none">
+                    Latitud *
+                  </Label>
                   <Input
                     id="latitude"
                     type="number"
@@ -374,15 +387,18 @@ export function FincasManagement() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        latitude: Number.parseFloat(e.target.value)
+                        latitude: Number.parseFloat(e.target.value),
                       })
                     }
                     placeholder="Ej: 4.711"
+                    className="px-4 py-3"
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="longitude">Longitud *</Label>
+                <div className="space-y-3">
+                  <Label htmlFor="longitude" className="text-sm font-medium leading-none">
+                    Longitud *
+                  </Label>
                   <Input
                     id="longitude"
                     type="number"
@@ -395,31 +411,39 @@ export function FincasManagement() {
                       })
                     }
                     placeholder="Ej: -74.0721"
+                    className="px-4 py-3"
                     required
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Definir Límites de la Finca *</Label>
-                <LoteMapEditor
-                  center={{lat: formData.latitude , lng: formData.longitude}}
-                  zoom={formData?.zoom}
-                  coordinates={formData.coordinates}
-                  onCoordinatesChange={(coordinates) => {
-                    setFormData({ ...formData, coordinates })
-                  }}
-                  title="Límites de la Finca"
-                  isLote={false}
-                />
+              <div className="space-y-4">
+                <Label className="text-sm font-medium leading-none">Definir Límites de la Finca *</Label>
+                <div className="border rounded-lg p-4">
+                  <LoteMapEditor
+                    center={{ lat: formData.latitude, lng: formData.longitude }}
+                    zoom={formData?.zoom}
+                    coordinates={formData.coordinates}
+                    onCoordinatesChange={(coordinates) => {
+                      setFormData({ ...formData, coordinates })
+                    }}
+                    title="Límites de la Finca"
+                    isLote={false}
+                  />
+                </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 pt-4">
-                <Button type="submit" disabled={submitting} className="flex-1">
+              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t">
+                <Button type="submit" disabled={submitting} className="flex-1 px-6 py-3">
                   {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {editingFinca ? "Actualizar Finca" : "Crear Finca"}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  className="flex-1 px-6 py-3"
+                >
                   Cancelar
                 </Button>
               </div>
@@ -428,46 +452,46 @@ export function FincasManagement() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total Fincas</CardTitle>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+        <Card className="p-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-4 pt-4">
+            <CardTitle className="text-xs sm:text-sm font-medium leading-none">Total Fincas</CardTitle>
             <Building2 className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-lg sm:text-2xl font-bold">{fincas.length}</div>
+          <CardContent className="px-4 pb-4">
+            <div className="text-lg sm:text-2xl font-bold leading-none">{fincas.length}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total Área</CardTitle>
+        <Card className="p-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-4 pt-4">
+            <CardTitle className="text-xs sm:text-sm font-medium leading-none">Total Área</CardTitle>
             <Layers className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-lg sm:text-2xl font-bold text-green-600">
+          <CardContent className="px-4 pb-4">
+            <div className="text-lg sm:text-2xl font-bold text-green-600 leading-none">
               {fincas.reduce((sum, f) => sum + f.area, 0).toFixed(1)}
             </div>
             <p className="text-xs text-muted-foreground">Hectáreas</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total Lotes</CardTitle>
+        <Card className="p-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-4 pt-4">
+            <CardTitle className="text-xs sm:text-sm font-medium leading-none">Total Lotes</CardTitle>
             <Layers className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-lg sm:text-2xl font-bold text-blue-600">
+          <CardContent className="px-4 pb-4">
+            <div className="text-lg sm:text-2xl font-bold text-blue-600 leading-none">
               {fincas.reduce((sum, f) => sum + (f.lotes?.length || 0), 0)}
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">Total Válvulas</CardTitle>
+        <Card className="p-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 px-4 pt-4">
+            <CardTitle className="text-xs sm:text-sm font-medium leading-none">Total Válvulas</CardTitle>
             <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-purple-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-lg sm:text-2xl font-bold text-purple-600">
+          <CardContent className="px-4 pb-4">
+            <div className="text-lg sm:text-2xl font-bold text-purple-600 leading-none">
               {fincas.reduce(
                 (sum, f) => sum + (f.lotes?.reduce((loteSum, lote) => loteSum + (lote.valvulas?.length || 0), 0) || 0),
                 0,
@@ -477,18 +501,18 @@ export function FincasManagement() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base sm:text-lg">Buscar Fincas</CardTitle>
+      <Card className="p-1">
+        <CardHeader className="px-6 py-4">
+          <CardTitle className="text-base sm:text-lg leading-tight">Buscar Fincas</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-6 pb-6">
           <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nombre o ubicación..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
+              className="pl-10 py-3"
             />
           </div>
         </CardContent>
@@ -503,7 +527,7 @@ export function FincasManagement() {
             {recentFincas.map((finca) => {
               const stats = getFincaStats(finca.id)
               return (
-                <Card key={finca.id} className="hover:shadow-lg transition-shadow">
+                <Card key={finca.id} className="hover:shadow-lg transition-shadow p-4">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
@@ -573,7 +597,9 @@ export function FincasManagement() {
       {remainingFincas.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base sm:text-lg">Todas las Fincas ({filteredFincas.length})</CardTitle>
+            <CardTitle className="text-base sm:text-lg leading-tight">
+              Todas las Fincas ({filteredFincas.length})
+            </CardTitle>
             <CardDescription>Lista completa de fincas en el sistema</CardDescription>
           </CardHeader>
           <CardContent>
@@ -678,9 +704,7 @@ export function FincasManagement() {
                               {stats.activeValvulas}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {finca.createdAt}
-                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{finca.createdAt}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end space-x-2">
                               <Button variant="outline" size="sm" onClick={() => handleEdit(finca)}>
@@ -731,7 +755,7 @@ export function FincasManagement() {
       )}
 
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto p-8">
           <DialogHeader>
             <DialogTitle>Vista de Finca - {viewingFinca?.name}</DialogTitle>
             <DialogDescription>Visualización de la finca con sus lotes y límites definidos</DialogDescription>
@@ -760,12 +784,7 @@ export function FincasManagement() {
               </div>
 
               <div className="h-[500px] rounded-lg overflow-hidden border">
-                <GoogleMap
-                  center ={{lat: 4.711 , lng:  -74.0721}}
-                  zoom={16}
-                  showSatellite={true}
-                  height="500px"
-                />
+                <GoogleMap center={{ lat: 4.711, lng: -74.0721 }} zoom={16} showSatellite={true} height="500px" />
               </div>
 
               <div className="flex justify-end">
