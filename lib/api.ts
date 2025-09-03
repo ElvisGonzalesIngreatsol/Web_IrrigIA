@@ -213,7 +213,7 @@ class ApiService {
   }
 
   async controlValvula(valvulaId: number, action: "ABIERTA" | "CERRADA", duracion?: number): Promise<ApiResponse<any>> {
-    return this.request(`/api/comandos-control`, {
+    return this.request(`/api/valvulas/downlink`, {
       method: "POST",
       body: JSON.stringify({
         valvulaId,
