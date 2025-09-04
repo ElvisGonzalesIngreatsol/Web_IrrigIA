@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useMemo } from "react"
 
 interface GoogleMapProps {
   center: { lat: number; lng: number }
@@ -32,6 +32,51 @@ declare global {
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 const GOOGLE_MAPS_MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID
 
+const validateCoordinate = (coord: any): { lat: number; lng: number } | null => {
+  if (!coord) return null
+
+  let lat: number, lng: number
+
+  // Handle different coordinate formats
+  if (typeof coord === "object") {
+    lat = typeof coord.lat === "string" ? Number.parseFloat(coord.lat) : coord.lat
+    lng = typeof coord.lng === "string" ? Number.parseFloat(coord.lng) : coord.lng
+
+    // Also check for latitude/longitude properties
+    if (isNaN(lat) && coord.latitude !== undefined) {
+      lat = typeof coord.latitude === "string" ? Number.parseFloat(coord.latitude) : coord.latitude
+    }
+    if (isNaN(lng) && coord.longitude !== undefined) {
+      lng = typeof coord.longitude === "string" ? Number.parseFloat(coord.longitude) : coord.longitude
+    }
+  } else {
+    return null
+  }
+
+  // Validate that coordinates are finite numbers
+  if (!isFinite(lat) || !isFinite(lng) || isNaN(lat) || isNaN(lng)) {
+    return null
+  }
+
+  // Validate coordinate ranges
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return null
+  }
+
+  return { lat, lng }
+}
+
+const validateCoordinateArray = (coordinates: any[]): { lat: number; lng: number }[] => {
+  if (!Array.isArray(coordinates)) return []
+
+  return coordinates
+    .map((coord) => validateCoordinate(coord))
+    .filter((coord): coord is { lat: number; lng: number } => coord !== null)
+}
+
+// Default center for Costa Rica (safe fallback)
+const DEFAULT_CENTER = { lat: 9.934739, lng: -84.087502 }
+
 export function GoogleMap({
   center,
   zoom,
@@ -51,6 +96,25 @@ export function GoogleMap({
   const markersRef = useRef<any[]>([])
   const polygonsRef = useRef<any[]>([])
   const labelsRef = useRef<any[]>([])
+
+  const validCenter = useMemo(() => {
+    const validatedCenter = validateCoordinate(center)
+    if (validatedCenter) {
+      console.log("[v0] Using provided center:", validatedCenter)
+      return validatedCenter
+    }
+    console.log("[v0] Invalid center provided, using default:", DEFAULT_CENTER)
+    return DEFAULT_CENTER
+  }, [center])
+
+  const validZoom = useMemo(() => {
+    const zoomNum = typeof zoom === "string" ? Number.parseInt(zoom) : zoom
+    if (isFinite(zoomNum) && zoomNum >= 1 && zoomNum <= 22) {
+      return zoomNum
+    }
+    console.log("[v0] Invalid zoom provided, using default: 15")
+    return 15
+  }, [zoom])
 
   const loadGoogleMapsScript = () => {
     if (!GOOGLE_MAPS_API_KEY) {
@@ -134,11 +198,11 @@ export function GoogleMap({
     }
 
     try {
-      console.log("Initializing map with center:", center, "zoom:", zoom)
+      console.log("[v0] Initializing map with validated center:", validCenter, "zoom:", validZoom)
 
       const mapOptions = {
-        center,
-        zoom,
+        center: validCenter,
+        zoom: validZoom,
         mapId: GOOGLE_MAPS_MAP_ID,
         mapTypeId: showSatellite ? "hybrid" : "roadmap",
         gestureHandling: "cooperative",
@@ -160,9 +224,9 @@ export function GoogleMap({
         mapInstance.addListener("click", onMapClick)
       }
 
-      console.log("Map initialized successfully")
+      console.log("[v0] Map initialized successfully")
     } catch (error) {
-      console.error("Error initializing map:", error)
+      console.error("[v0] Error initializing map:", error)
       setErrorMessage(`Error al inicializar el mapa: ${error.message}`)
       setIsError(true)
       setIsLoaded(true)
@@ -230,9 +294,18 @@ export function GoogleMap({
 
     fincas.forEach((finca) => {
       try {
-        if (finca.coordinates && finca.coordinates.length > 0) {
+        if (finca.coordinates && Array.isArray(finca.coordinates) && finca.coordinates.length > 0) {
+          const validatedCoordinates = validateCoordinateArray(finca.coordinates)
+
+          if (validatedCoordinates.length < 3) {
+            console.warn("[v0] Finca has insufficient valid coordinates:", finca.name, validatedCoordinates.length)
+            return
+          }
+
+          console.log("[v0] Creating finca polygon with", validatedCoordinates.length, "valid coordinates")
+
           const fincaPolygon = new window.google.maps.Polygon({
-            paths: finca.coordinates,
+            paths: validatedCoordinates,
             strokeColor: "#22C55E",
             strokeOpacity: 1.0,
             strokeWeight: 3,
@@ -245,7 +318,7 @@ export function GoogleMap({
 
           if (fincas.length === 1) {
             const bounds = new window.google.maps.LatLngBounds()
-            finca.coordinates.forEach((coord) => bounds.extend(coord))
+            validatedCoordinates.forEach((coord) => bounds.extend(coord))
             map.fitBounds(bounds)
             setTimeout(() => {
               const currentZoom = map.getZoom()
@@ -274,7 +347,18 @@ export function GoogleMap({
 
         if (finca.lotes && finca.lotes.length > 0) {
           finca.lotes.forEach((lote) => {
-            if (lote.coordinates && lote.coordinates.length > 0) {
+            if (lote.coordinates && Array.isArray(lote.coordinates) && lote.coordinates.length > 0) {
+              const validatedLoteCoordinates = validateCoordinateArray(lote.coordinates)
+
+              if (validatedLoteCoordinates.length < 3) {
+                console.warn(
+                  "[v0] Lote has insufficient valid coordinates:",
+                  lote.name,
+                  validatedLoteCoordinates.length,
+                )
+                return
+              }
+
               const getLoteStatus = (lote) => {
                 if (!lote.valvulas || lote.valvulas.length === 0) {
                   return { status: "no-valves", color: "#9CA3AF", opacity: 0.3 }
@@ -304,7 +388,7 @@ export function GoogleMap({
               const loteStatusInfo = getLoteStatus(lote)
 
               const lotePolygon = new window.google.maps.Polygon({
-                paths: lote.coordinates,
+                paths: validatedLoteCoordinates,
                 strokeColor: loteStatusInfo.color,
                 strokeOpacity: 1.0,
                 strokeWeight: 2,
@@ -316,81 +400,90 @@ export function GoogleMap({
               polygonsRef.current.push(lotePolygon)
 
               if (lote.centerCoordinates) {
-                const loteMarker = new window.google.maps.Marker({
-                  position: lote.centerCoordinates,
-                  map: map,
-                  icon: createLoteIcon(lote.name),
-                })
+                const validatedCenter = validateCoordinate(lote.centerCoordinates)
+                if (validatedCenter) {
+                  const loteMarker = new window.google.maps.Marker({
+                    position: validatedCenter,
+                    map: map,
+                    icon: createLoteIcon(lote.name),
+                  })
 
-                markersRef.current.push(loteMarker)
-                labelsRef.current.push(loteMarker)
+                  markersRef.current.push(loteMarker)
+                  labelsRef.current.push(loteMarker)
 
-                const getStatusText = (status) => {
-                  switch (status) {
-                    case "irrigating":
-                      return "💧 Regando Ahora"
-                    case "maintenance":
-                      return "🔧 En Mantenimiento"
-                    case "irrigated":
-                      return "✅ Recientemente Regado"
-                    case "inactive":
-                      return "⏸️ Inactivo"
-                    case "no-valves":
-                      return "❌ Sin Válvulas"
-                    default:
-                      return "❓ Estado Desconocido"
+                  const getStatusText = (status) => {
+                    switch (status) {
+                      case "irrigating":
+                        return "💧 Regando Ahora"
+                      case "maintenance":
+                        return "🔧 En Mantenimiento"
+                      case "irrigated":
+                        return "✅ Recientemente Regado"
+                      case "inactive":
+                        return "⏸️ Inactivo"
+                      case "no-valves":
+                        return "❌ Sin Válvulas"
+                      default:
+                        return "❓ Estado Desconocido"
+                    }
                   }
+
+                  const loteInfoWindow = new window.google.maps.InfoWindow({
+                    content: `
+                      <div style="padding: 10px; font-family: system-ui; min-width: 200px;">
+                        <h4 style="margin: 0 0 6px 0; font-weight: bold; color: #1f2937; font-size: 14px;">${lote.name}</h4>
+                        <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">📏 Área: ${lote.area} Ha</p>
+                        <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">🌱 Cultivo: ${lote.crop}</p>
+                        <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">💧 Válvulas: ${lote.valvulas?.length || 0}</p>
+                        <p style="margin: 0; font-size: 12px; font-weight: bold; color: ${loteStatusInfo.color};">${getStatusText(loteStatusInfo.status)}</p>
+                      </div>
+                    `,
+                  })
+
+                  lotePolygon.addListener("click", (event) => {
+                    loteInfoWindow.setPosition(event.latLng)
+                    loteInfoWindow.open(map)
+                  })
+
+                  loteMarker.addListener("click", () => {
+                    loteInfoWindow.setPosition(validatedCenter)
+                    loteInfoWindow.open(map)
+                  })
                 }
-
-                const loteInfoWindow = new window.google.maps.InfoWindow({
-                  content: `
-                    <div style="padding: 10px; font-family: system-ui; min-width: 200px;">
-                      <h4 style="margin: 0 0 6px 0; font-weight: bold; color: #1f2937; font-size: 14px;">${lote.name}</h4>
-                      <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">📏 Área: ${lote.area} Ha</p>
-                      <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">🌱 Cultivo: ${lote.crop}</p>
-                      <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">💧 Válvulas: ${lote.valvulas?.length || 0}</p>
-                      <p style="margin: 0; font-size: 12px; font-weight: bold; color: ${loteStatusInfo.color};">${getStatusText(loteStatusInfo.status)}</p>
-                    </div>
-                  `,
-                })
-
-                lotePolygon.addListener("click", (event) => {
-                  loteInfoWindow.setPosition(event.latLng)
-                  loteInfoWindow.open(map)
-                })
-
-                loteMarker.addListener("click", () => {
-                  loteInfoWindow.setPosition(lote.centerCoordinates)
-                  loteInfoWindow.open(map)
-                })
               }
 
               if (lote.valvulas && lote.valvulas.length > 0) {
                 lote.valvulas.forEach((valvula) => {
-                  const vLat = valvula.latitud || valvula.coordinates?.lat
-                  const vLng = valvula.longitud || valvula.coordinates?.lng
+                  let vLat = valvula.latitud || valvula.coordinates?.lat || valvula.lat
+                  let vLng = valvula.longitud || valvula.coordinates?.lng || valvula.lng
 
-                  if (!vLat || !vLng) return
+                  // Convert strings to numbers if needed
+                  if (typeof vLat === "string") vLat = Number.parseFloat(vLat)
+                  if (typeof vLng === "string") vLng = Number.parseFloat(vLng)
 
-                  const isActive = valvula.estado === "activa" || valvula.isOpen
-                  const isMaintenance = valvula.status === "maintenance"
+                  if (!isFinite(vLat) || !isFinite(vLng) || isNaN(vLat) || isNaN(vLng)) {
+                    console.warn("[v0] Invalid valve coordinates:", valvula.name, vLat, vLng)
+                    return
+                  }
+
+                  const valvePosition = { lat: vLat, lng: vLng }
 
                   const getValveColor = () => {
-                    if (isMaintenance) return "#EF4444"
-                    if (isActive) return "#3B82F6"
+                    if (valvula.status === "maintenance") return "#EF4444"
+                    if (valvula.isOpen) return "#3B82F6"
                     return "#6B7280"
                   }
 
                   const valveMarker = new window.google.maps.Marker({
-                    position: { lat: vLat, lng: vLng },
+                    position: valvePosition,
                     map: map,
                     title: `Válvula ${valvula.nombre || valvula.name}`,
                     icon: {
                       url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <circle cx="12" cy="12" r="8" fill="${getValveColor()}" stroke="white" strokeWidth="2"/>
-                          ${isActive && !isMaintenance ? '<circle cx="12" cy="12" r="4" fill="white" opacity="0.9"><animate attributeName="opacity" values="0.9;0.3;0.9" dur="1.5s" repeatCount="indefinite"/></circle>' : ""}
-                          ${isMaintenance ? '<path d="M8 8l8 8M16 8l-8 8" stroke="white" strokeWidth="2" strokeLinecap="round"/>' : ""}
+                          ${valvula.isOpen && valvula.status !== "maintenance" ? '<circle cx="12" cy="12" r="4" fill="white" opacity="0.9"><animate attributeName="opacity" values="0.9;0.3;0.9" dur="1.5s" repeatCount="indefinite"/></circle>' : ""}
+                          ${valvula.status === "maintenance" ? '<path d="M8 8l8 8M16 8l-8 8" stroke="white" strokeWidth="2" strokeLinecap="round"/>' : ""}
                         </svg>
                       `)}`,
                       scaledSize: new window.google.maps.Size(24, 24),
@@ -401,8 +494,8 @@ export function GoogleMap({
                   markersRef.current.push(valveMarker)
 
                   const getValveStatusText = () => {
-                    if (isMaintenance) return "🔧 En Mantenimiento"
-                    if (isActive) return "🟢 Regando"
+                    if (valvula.status === "maintenance") return "🔧 En Mantenimiento"
+                    if (valvula.isOpen) return "🟢 Regando"
                     return "⚫ Inactiva"
                   }
 
@@ -426,7 +519,7 @@ export function GoogleMap({
           })
         }
       } catch (error) {
-        console.warn("Error creating finca polygons:", error)
+        console.warn("[v0] Error creating finca polygons:", error)
       }
     })
   }
@@ -436,8 +529,14 @@ export function GoogleMap({
 
     markers.forEach((markerData) => {
       try {
+        const validatedPosition = validateCoordinate(markerData.position)
+        if (!validatedPosition) {
+          console.warn("[v0] Invalid marker position:", markerData.title, markerData.position)
+          return
+        }
+
         const marker = new window.google.maps.Marker({
-          position: markerData.position,
+          position: validatedPosition,
           map: map,
           title: markerData.title,
           icon: {
@@ -467,7 +566,7 @@ export function GoogleMap({
 
         markersRef.current.push(marker)
       } catch (error) {
-        console.warn("Error creating marker:", error)
+        console.warn("[v0] Error creating marker:", error)
       }
     })
   }
@@ -488,11 +587,11 @@ export function GoogleMap({
 
   useEffect(() => {
     if (map) {
-      map.setCenter(center)
-      map.setZoom(zoom)
+      map.setCenter(validCenter)
+      map.setZoom(validZoom)
       map.setMapTypeId(showSatellite ? "hybrid" : "roadmap")
     }
-  }, [map, center, zoom, showSatellite])
+  }, [map, validCenter, validZoom, showSatellite])
 
   useEffect(() => {
     if (map) {
@@ -504,7 +603,7 @@ export function GoogleMap({
 
   if (!isLoaded) {
     return (
-      <div className="w-full relative rounded-lg overflow-hidden border border-gray-200" style={{ height }}>
+      <div className="w-full relative rounded-lg overflow-hidden border border-gray-200 shadow-sm" style={{ height }}>
         <div ref={mapRef} className="w-full h-full absolute inset-0" style={{ visibility: "hidden" }} />
         <div className="w-full h-full bg-gray-50 flex items-center justify-center border-2 border-dashed border-gray-200 absolute inset-0">
           <div className="text-center p-6">
@@ -535,7 +634,7 @@ export function GoogleMap({
 
   if (isError) {
     return (
-      <div className="w-full relative rounded-lg overflow-hidden border border-gray-200" style={{ height }}>
+      <div className="w-full relative rounded-lg overflow-hidden border border-gray-200 shadow-sm" style={{ height }}>
         <div ref={mapRef} className="w-full h-full absolute inset-0" style={{ visibility: "hidden" }} />
         <div className="w-full h-full bg-red-50 flex items-center justify-center border-2 border-red-200 absolute inset-0">
           <div className="text-center p-6">
@@ -570,7 +669,7 @@ export function GoogleMap({
   }
 
   return (
-    <div className="w-full relative rounded-lg overflow-hidden border border-gray-200" style={{ height }}>
+    <div className="w-full relative rounded-lg overflow-hidden border border-gray-200 shadow-sm" style={{ height }}>
       <div ref={mapRef} className="w-full h-full" />
     </div>
   )

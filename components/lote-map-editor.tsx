@@ -181,10 +181,19 @@ export function LoteMapEditor({
     (event: any) => {
       if (readonly || !event.latLng || !isAddingPoint) return
 
-      const newCoordinate = {
-        lat: event.latLng.lat(),
-        lng: event.latLng.lng(),
+      const lat = event.latLng.lat()
+      const lng = event.latLng.lng()
+
+      if (!isFinite(lat) || !isFinite(lng) || isNaN(lat) || isNaN(lng)) {
+        addNotification({
+          type: "error",
+          title: "Coordenadas inválidas",
+          message: "No se pudieron obtener coordenadas válidas del mapa",
+        })
+        return
       }
+
+      const newCoordinate = { lat, lng }
 
       // Validar que el punto esté dentro de la finca si se proporcionan límites
       if (fincaBoundsRef.current && fincaBoundsRef.current.length >= 3) {
@@ -205,7 +214,7 @@ export function LoteMapEditor({
       addNotification({
         type: "success",
         title: "Punto agregado",
-        message: `Coordenada: ${newCoordinate.lat.toFixed(6)}, ${newCoordinate.lng.toFixed(6)}`,
+        message: `Coordenada: ${safeCoordinateDisplay(newCoordinate)}`,
       })
     },
     [readonly, isAddingPoint, onCoordinatesChange, addNotification],
@@ -227,8 +236,37 @@ export function LoteMapEditor({
     return inside
   }, [])
 
+  const safeCoordinateDisplay = (coord: any, precision = 6): string => {
+    if (!coord) return "0.000000"
+
+    let lat: number, lng: number
+
+    if (typeof coord === "object") {
+      lat = typeof coord.lat === "string" ? Number.parseFloat(coord.lat) : coord.lat
+      lng = typeof coord.lng === "string" ? Number.parseFloat(coord.lng) : coord.lng
+    } else {
+      return "0.000000"
+    }
+
+    if (!isFinite(lat) || !isFinite(lng) || isNaN(lat) || isNaN(lng)) {
+      return "0.000000"
+    }
+
+    return `${lat.toFixed(precision)}, ${lng.toFixed(precision)}`
+  }
+
   const addPointFromContext = useCallback(
     (lat: number, lng: number) => {
+      if (!isFinite(lat) || !isFinite(lng) || isNaN(lat) || isNaN(lng)) {
+        addNotification({
+          type: "error",
+          title: "Coordenadas inválidas",
+          message: "Las coordenadas proporcionadas no son válidas",
+        })
+        setContextMenu((prev) => ({ ...prev, visible: false }))
+        return
+      }
+
       const newCoordinate = { lat, lng }
 
       // Validar que el punto esté dentro de la finca si se proporcionan límites
@@ -252,7 +290,7 @@ export function LoteMapEditor({
       addNotification({
         type: "success",
         title: "Punto agregado",
-        message: `Coordenada: ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        message: `Coordenada: ${safeCoordinateDisplay(newCoordinate)}`,
       })
     },
     [onCoordinatesChange, addNotification, isPointInPolygon],
@@ -710,28 +748,28 @@ export function LoteMapEditor({
   )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 p-4">
       {/* Controles del mapa */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 sm:p-4 bg-gray-50 rounded-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             <Switch id="satellite-mode" checked={showSatellite} onCheckedChange={setShowSatellite} />
-            <Label htmlFor="satellite-mode" className="text-sm">
+            <Label htmlFor="satellite-mode" className="text-sm font-medium">
               Vista Satelital
             </Label>
           </div>
         </div>
 
         {!readonly && (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-3 flex-wrap">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Upload className="h-4 w-4 mr-1" />
+                <Button variant="outline" size="sm" className="px-4 py-2 bg-transparent">
+                  <Upload className="h-4 w-4 mr-2" />
                   Cargar Archivo
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
+              <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
                   <Upload className="h-4 w-4 mr-2" />
                   Cargar Archivo
@@ -753,22 +791,34 @@ export function LoteMapEditor({
               onClick={() => setIsAddingPoint(!isAddingPoint)}
               variant={isAddingPoint ? "default" : "outline"}
               size="sm"
-              className={isAddingPoint ? "bg-green-600 hover:bg-green-700" : ""}
+              className={`px-4 py-2 ${isAddingPoint ? "bg-green-600 hover:bg-green-700" : ""}`}
             >
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus className="h-4 w-4 mr-2" />
               {isAddingPoint ? "Modo Activo" : "Agregar Punto"}
             </Button>
 
-            <Button onClick={centerMap} variant="outline" size="sm">
-              <Navigation className="h-4 w-4 mr-1" />
+            <Button onClick={centerMap} variant="outline" size="sm" className="px-4 py-2 bg-transparent">
+              <Navigation className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Centrar</span>
             </Button>
-            <Button onClick={removeLastPoint} variant="outline" size="sm" disabled={coordinates?.length === 0}>
-              <RotateCcw className="h-4 w-4 mr-1" />
+            <Button
+              onClick={removeLastPoint}
+              variant="outline"
+              size="sm"
+              disabled={coordinates?.length === 0}
+              className="px-4 py-2 bg-transparent"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Deshacer</span>
             </Button>
-            <Button onClick={clearCoordinates} variant="outline" size="sm" disabled={coordinates?.length === 0}>
-              <Trash2 className="h-4 w-4 mr-1" />
+            <Button
+              onClick={clearCoordinates}
+              variant="outline"
+              size="sm"
+              disabled={coordinates?.length === 0}
+              className="px-4 py-2 bg-transparent"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Limpiar</span>
             </Button>
           </div>
@@ -777,9 +827,9 @@ export function LoteMapEditor({
 
       {/* Indicador de modo agregar punto */}
       {!readonly && isAddingPoint && (
-        <Alert className="bg-green-50 border-green-200">
+        <Alert className="bg-green-50 border-green-200 p-4 rounded-lg">
           <MapPin className="h-4 w-4" />
-          <AlertDescription className="text-green-800">
+          <AlertDescription className="text-green-800 ml-2">
             <strong>Modo Agregar Punto Activo:</strong> Haz clic en cualquier lugar del mapa para agregar puntos. El
             modo permanecerá activo hasta que lo desactives.
           </AlertDescription>
@@ -787,7 +837,7 @@ export function LoteMapEditor({
       )}
 
       {/* Mapa */}
-      <div className="w-full relative">
+      <div className="w-full relative border border-gray-200 rounded-lg overflow-hidden shadow-sm">
         <GoogleMap
           center={mapCenter}
           zoom={currentZoom}
@@ -800,14 +850,14 @@ export function LoteMapEditor({
         {/* Menú contextual */}
         {contextMenu.visible && !readonly && (
           <div
-            className="absolute bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50"
+            className="absolute bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50 min-w-48"
             style={{
               left: contextMenu.x,
               top: contextMenu.y,
             }}
           >
             <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2 text-sm"
+              className="w-full px-4 py-3 text-left hover:bg-gray-100 flex items-center gap-3 text-sm transition-colors"
               onClick={() => addPointFromContext(contextMenu.lat, contextMenu.lng)}
             >
               <Plus className="h-4 w-4 text-green-600" />
@@ -815,7 +865,7 @@ export function LoteMapEditor({
             </button>
             {coordinates.length > 0 && (
               <button
-                className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2 text-sm"
+                className="w-full px-4 py-3 text-left hover:bg-gray-100 flex items-center gap-3 text-sm transition-colors"
                 onClick={() => removeNearestPoint(contextMenu.lat, contextMenu.lng)}
               >
                 <Trash2 className="h-4 w-4 text-red-600" />
@@ -827,53 +877,53 @@ export function LoteMapEditor({
       </div>
 
       {/* Información del polígono */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+      <Card className="border border-gray-200 shadow-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base sm:text-lg flex items-center gap-3 flex-wrap">
             <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
             {title}
             {readonly ? (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="text-xs px-2 py-1">
                 <Eye className="h-3 w-3 mr-1" />
                 Solo Vista
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs px-2 py-1">
                 <Edit className="h-3 w-3 mr-1" />
                 Editable
               </Badge>
             )}
             {isLote && (
-              <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700">
+              <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 px-2 py-1">
                 Lote
               </Badge>
             )}
             {!isLote && (
-              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
+              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 px-2 py-1">
                 Finca
               </Badge>
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm font-medium mb-2">Puntos definidos:</p>
-              <Badge variant="outline" className="text-sm sm:text-lg px-2 sm:px-3 py-1">
-                {coordinates?.length} puntos
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Puntos definidos:</p>
+              <Badge variant="outline" className="text-sm sm:text-lg px-3 py-2">
+                {coordinates?.length || 0} puntos
               </Badge>
             </div>
-            <div>
-              <p className="text-sm font-medium mb-2">Área calculada:</p>
-              <Badge variant="outline" className="text-sm sm:text-lg px-2 sm:px-3 py-1">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Área calculada:</p>
+              <Badge variant="outline" className="text-sm sm:text-lg px-3 py-2">
                 {area.toFixed(2)} Ha
               </Badge>
             </div>
-            <div>
-              <p className="text-sm font-medium mb-2">Estado:</p>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Estado:</p>
               <Badge
                 variant={coordinates?.length >= 3 ? "default" : "secondary"}
-                className="text-sm sm:text-lg px-2 sm:px-3 py-1"
+                className="text-sm sm:text-lg px-3 py-2"
               >
                 {coordinates?.length >= 3 ? "Válido" : "Incompleto"}
               </Badge>
@@ -881,46 +931,49 @@ export function LoteMapEditor({
           </div>
 
           {/* Leyenda de colores */}
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <h4 className="text-sm font-medium mb-2">Leyenda de Colores:</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <h4 className="text-sm font-medium mb-3 text-gray-800">Leyenda de Colores:</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               {fincaBounds && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <div className="w-4 h-3 bg-green-500 border border-green-600 rounded"></div>
-                  <span>Límites de la Finca</span>
+                  <span className="text-gray-700">Límites de la Finca</span>
                 </div>
               )}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <div className="w-4 h-3 bg-blue-500 border border-blue-600 rounded"></div>
-                <span>Polígono de Finca</span>
+                <span className="text-gray-700">Polígono de Finca</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <div className="w-4 h-3 bg-orange-500 border border-orange-600 rounded"></div>
-                <span>Polígono de Lote</span>
+                <span className="text-gray-700">Polígono de Lote</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <div className="w-3 h-3 bg-blue-500 rounded-full border border-white"></div>
-                <span>Puntos Editables</span>
+                <span className="text-gray-700">Puntos Editables</span>
               </div>
             </div>
           </div>
 
           {/* Lista de coordenadas */}
           {coordinates?.length > 0 && (
-            <div className="mt-4">
-              <p className="text-sm font-medium mb-2">Coordenadas:</p>
-              <div className="max-h-32 overflow-y-auto bg-gray-50 rounded p-2">
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700">Coordenadas:</p>
+              <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-3 border border-gray-200">
                 {coordinates.map((coord, index) => (
-                  <div key={index} className="flex items-center justify-between text-xs py-1">
-                    <span className="truncate mr-2">
-                      Punto {index + 1}: {coord.lat.toFixed(6)}, {coord.lng.toFixed(6)}
+                  <div
+                    key={index}
+                    className="flex items-center justify-between text-xs py-2 border-b border-gray-200 last:border-b-0"
+                  >
+                    <span className="truncate mr-3 text-gray-700">
+                      Punto {index + 1}: {safeCoordinateDisplay(coord)}
                     </span>
                     {!readonly && coordinates.length > 3 && (
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => removePoint(index)}
-                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700 flex-shrink-0"
+                        className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -933,11 +986,11 @@ export function LoteMapEditor({
 
           {/* Instrucciones */}
           {!readonly && (
-            <Alert className="mt-4">
+            <Alert className="border border-blue-200 bg-blue-50">
               <Info className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Instrucciones:</strong>
-                <ul className="mt-2 text-sm space-y-1">
+              <AlertDescription className="ml-2">
+                <strong className="text-blue-800">Instrucciones:</strong>
+                <ul className="mt-3 text-sm space-y-2 text-blue-700">
                   <li>• Activa "Agregar Punto" y haz clic en el mapa para agregar múltiples puntos</li>
                   <li>• Click derecho en el mapa para mostrar menú contextual</li>
                   <li>• Arrastra los puntos para ajustar la forma</li>
@@ -950,9 +1003,9 @@ export function LoteMapEditor({
           )}
 
           {fincaBounds && (
-            <Alert className="mt-2">
+            <Alert className="border border-green-200 bg-green-50">
               <Info className="h-4 w-4" />
-              <AlertDescription className="text-sm">
+              <AlertDescription className="text-sm text-green-700 ml-2">
                 El área <strong className="text-green-600">verde</strong> muestra los límites de la finca. Todos los
                 puntos del lote deben estar dentro de esta área.
               </AlertDescription>

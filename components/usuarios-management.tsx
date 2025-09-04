@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useData } from "@/contexts/data-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,7 +37,7 @@ import {
 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import type { User } from "@/types"
+import type { User, Finca } from "@/types"
 import { apiService } from "@/lib/api"
 
 const showDeleteConfirmation = (userName: string): Promise<boolean> => {
@@ -147,7 +146,9 @@ const showNotification = (type: "success" | "error" | "info", title: string, mes
 }
 
 export function UsuariosManagement() {
-  const { fincas } = useData()
+  const [fincas, setFincas] = useState<Finca[]>([])
+  const [fincasLoading, setFincasLoading] = useState(true)
+  const [fincasError, setFincasError] = useState<string | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -168,6 +169,45 @@ export function UsuariosManagement() {
     fincaId: "",
     isActive: true,
   })
+
+  const fetchFincas = async () => {
+    try {
+      setFincasLoading(true)
+      setFincasError(null)
+      console.log("[v0] Fetching fincas from backend...")
+
+      const response = await apiService.getAllFincas()
+
+      if (response.success && response.data) {
+        console.log("[v0] Fincas fetched successfully:", response.data)
+
+        // Handle different possible response structures
+        const fincasData = response.data.data || response.data
+        const mappedFincas = Array.isArray(fincasData)
+          ? fincasData.map((finca: any) => ({
+              id: finca.id || Math.floor(Math.random() * 1000000),
+              name: finca.name || finca.nombre || "Sin nombre",
+              location: finca.location || finca.ubicacion || "Ubicación no especificada",
+              area: finca.area || 0,
+              coordinates: finca.coordinates || finca.coordinate || [],
+              createdAt: finca.createdAt ? new Date(finca.createdAt) : new Date(),
+              updatedAt: finca.updatedAt ? new Date(finca.updatedAt) : new Date(),
+            }))
+          : []
+
+        setFincas(mappedFincas)
+        console.log("[v0] Mapped fincas:", mappedFincas)
+      } else {
+        console.error("[v0] Failed to fetch fincas:", response.error)
+        setFincasError(response.error || "Error al cargar fincas")
+      }
+    } catch (error) {
+      console.error("[v0] Error fetching fincas:", error)
+      setFincasError("Error de conexión al cargar fincas")
+    } finally {
+      setFincasLoading(false)
+    }
+  }
 
   const fetchUsers = async () => {
     try {
@@ -214,6 +254,7 @@ export function UsuariosManagement() {
 
   useEffect(() => {
     fetchUsers()
+    fetchFincas()
   }, [])
 
   const totalItems = users.length
@@ -248,6 +289,7 @@ export function UsuariosManagement() {
       const payload = {
         ...formData,
         role: formData.role as "ADMIN" | "USER",
+        fincaId: formData.fincaId && formData.fincaId !== "" ? Number(formData.fincaId) : null,
       }
 
       if (editingUser) {
@@ -306,7 +348,7 @@ export function UsuariosManagement() {
       password: user.password,
       phone: user.phone,
       role: user.role,
-      fincaId: user.fincaId || "",
+      fincaId: user.fincaId ? user.fincaId.toString() : "",
       isActive: user.isActive,
     })
     setIsDialogOpen(true)
@@ -347,10 +389,10 @@ export function UsuariosManagement() {
     }))
   }
 
-  const getFincaName = (fincaId?: string) => {
+  const getFincaName = (fincaId?: string | number) => {
     if (!fincaId) return "Sin asignar"
-    const finca = fincas.find((f) => f.id === fincaId)
-    return finca?.name || "Finca no encontrada"
+    const finca = fincas.find((f) => f.id.toString() === fincaId.toString())
+    return finca ? `${finca.name} - ${finca.location}` : "Finca no encontrada"
   }
 
   const handleResetPassword = async (userId: number) => {
@@ -433,6 +475,18 @@ export function UsuariosManagement() {
             {error}
             <Button variant="outline" size="sm" className="ml-2 bg-transparent" onClick={fetchUsers}>
               Reintentar
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {fincasError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {fincasError}
+            <Button variant="outline" size="sm" className="ml-2 bg-transparent" onClick={fetchFincas}>
+              Reintentar Fincas
             </Button>
           </AlertDescription>
         </Alert>
@@ -557,19 +611,37 @@ export function UsuariosManagement() {
                   <Select
                     value={formData.fincaId}
                     onValueChange={(value) => setFormData({ ...formData, fincaId: value === "none" ? "" : value })}
+                    disabled={fincasLoading}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar finca" />
+                    <SelectTrigger className={fincasLoading ? "opacity-50" : ""}>
+                      <SelectValue placeholder={fincasLoading ? "Cargando fincas..." : "Seleccionar finca"} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Sin asignar</SelectItem>
                       {fincas.map((finca) => (
-                        <SelectItem key={finca.id} value={finca.id}>
+                        <SelectItem key={finca.id} value={finca.id.toString()}>
                           {finca.name} - {finca.location}
                         </SelectItem>
                       ))}
+                      {!fincasLoading && fincas.length === 0 && (
+                        <SelectItem value="no-fincas" disabled>
+                          No hay fincas disponibles
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
+                  {fincasLoading && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Cargando fincas desde la base de datos...
+                    </p>
+                  )}
+                  {formData.fincaId && formData.fincaId !== "" && (
+                    <p className="text-sm text-green-600 flex items-center gap-2">
+                      <MapPin className="h-3 w-3" />
+                      Finca asignada: {getFincaName(formData.fincaId)}
+                    </p>
+                  )}
                 </div>
               </div>
 
