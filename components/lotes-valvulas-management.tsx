@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,19 +28,27 @@ import { LoteMapEditor } from "./lote-map-editor"
 import { useNotifications } from "./notification-system"
 import type { LoteCoordinate, Lote, Valvula } from "@/types"
 import Swal from "sweetalert2"
+import { apiService } from "@/lib/api"
 
 export function LotesValvulasManagement() {
   const { user } = useAuth()
-  const { fincas, lotes, valvulas, addLote, updateLote, deleteLote, addValvula, updateValvula, deleteValvula } =
-    useData()
+  const { valvulas, addLote, updateLote, deleteLote, addValvula, updateValvula, deleteValvula } = useData()
   const { showSuccess, showError } = useNotifications()
+
+  const [fincas, setFincas] = useState<any[]>([])
+  const [loadingFincas, setLoadingFincas] = useState(true)
+  const [fincasError, setFincasError] = useState<string | null>(null)
+
+  const [lotes, setLotes] = useState<any[]>([])
+  const [loadingLotes, setLoadingLotes] = useState(false)
+  const [lotesError, setLotesError] = useState<string | null>(null)
 
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(6)
 
   // Filtrar fincas según el rol del usuario
-  const userFincas = user?.role === "admin" ? fincas : user?.fincaId ? fincas.filter((f) => f.id === user.fincaId) : []
+  const userFincas = user?.role === "ADMIN" ? fincas : user?.fincaId ? fincas.filter((f) => f.id === user.fincaId) : []
 
   // Estados para lotes
   const [selectedFincaId, setSelectedFincaId] = useState<string>(user?.fincaId || "")
@@ -72,9 +80,45 @@ export function LotesValvulasManagement() {
     maintenanceNotes: "",
   })
 
-  // Filtrar lotes por finca seleccionada
-  const filteredLotes = selectedFincaId ? lotes.filter((lote) => lote.fincaId === selectedFincaId) : []
   const selectedFinca = selectedFincaId ? fincas.find((f) => f.id === selectedFincaId) : null
+
+  const fetchLotes = async (fincaId: string) => {
+    if (!fincaId) {
+      setLotes([])
+      return
+    }
+
+    setLoadingLotes(true)
+    setLotesError(null)
+
+    try {
+      console.log(`[v0] Fetching lotes for finca: ${fincaId}`)
+      const response = await apiService.getLotes({ fincaId })
+
+      if (response.success && response.data) {
+        console.log(`[v0] Lotes loaded successfully:`, response.data.length)
+        setLotes(Array.isArray(response.data) ? response.data : [])
+      } else {
+        console.error(`[v0] Error loading lotes:`, response.error)
+        setLotesError(response.error || "Error al cargar lotes")
+        setLotes([])
+      }
+    } catch (error) {
+      console.error(`[v0] Exception loading lotes:`, error)
+      setLotesError("Error de conexión al cargar lotes")
+      setLotes([])
+    } finally {
+      setLoadingLotes(false)
+    }
+  }
+
+  useEffect(() => {
+    if (selectedFincaId) {
+      fetchLotes(selectedFincaId)
+    } else {
+      setLotes([])
+    }
+  }, [selectedFincaId])
 
   const filteredValvulas = valvulas
     .filter((valvula) => valvula.fincaId === selectedFincaId)
@@ -145,6 +189,8 @@ export function LotesValvulasManagement() {
         addLote(loteData)
         showSuccess("Lote Creado", `El lote "${loteFormData.name}" ha sido creado exitosamente`)
       }
+
+      fetchLotes(selectedFincaId)
 
       resetLoteForm()
       setIsLoteDialogOpen(false)
@@ -305,6 +351,38 @@ export function LotesValvulasManagement() {
 
   const viewingLoteData = viewingLote ? lotes.find((l) => l.id === viewingLote) : null
 
+  useEffect(() => {
+    const fetchFincas = async () => {
+      try {
+        setLoadingFincas(true)
+        setFincasError(null)
+        const response = await apiService.getAllFincas()
+        if (response.success && response.data) {
+          setFincas(response.data)
+        } else {
+          setFincasError("Error al cargar las fincas")
+          showError("Error al cargar las fincas")
+        }
+      } catch (error) {
+        console.error("Error fetching fincas:", error)
+        setFincasError("Error al cargar las fincas")
+        showError("Error al cargar las fincas")
+      } finally {
+        setLoadingFincas(false)
+      }
+    }
+
+    fetchFincas()
+  }, [showError])
+
+  const filteredLotes = useMemo(() => {
+    return lotes.filter(
+      (lote) =>
+        lote.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lote.cultivo.toLowerCase().includes(searchTerm.toLowerCase()),
+    )
+  }, [lotes, searchTerm])
+
   return (
     <div className="space-y-8 p-6 min-h-screen" style={{ backgroundColor: "#F9F6F3" }}>
       <div className="rounded-xl shadow-sm p-6 border" style={{ backgroundColor: "#F9F6F3", borderColor: "#A6B28B" }}>
@@ -317,6 +395,7 @@ export function LotesValvulasManagement() {
             : `Administra los lotes y válvulas de tu finca`}
         </p>
       </div>
+      
 
       {/* Selector de Finca - Solo si es admin o si no tiene finca asignada */}
       {(user?.role === "ADMIN" || !user?.fincaId) && (
@@ -334,16 +413,38 @@ export function LotesValvulasManagement() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6">
-            <Select value={selectedFincaId} onValueChange={setSelectedFincaId}>
+            <Select value={selectedFincaId} onValueChange={setSelectedFincaId} disabled={loadingFincas}>
               <SelectTrigger className="w-full h-12 border-2 transition-colors" style={{ borderColor: "#A6B28B" }}>
-                <SelectValue placeholder="Selecciona una finca" />
+                <SelectValue
+                  placeholder={
+                    loadingFincas
+                      ? "Cargando fincas..."
+                      : fincasError
+                        ? "Error al cargar fincas"
+                        : "Selecciona una finca"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                {userFincas.map((finca) => (
-                  <SelectItem key={finca.id} value={finca.id}>
-                    {finca.name} - {finca.location}
+                {loadingFincas ? (
+                  <SelectItem value="loading" disabled>
+                    Cargando fincas...
                   </SelectItem>
-                ))}
+                ) : fincasError ? (
+                  <SelectItem value="error" disabled>
+                    Error: {fincasError}
+                  </SelectItem>
+                ) : fincas.length === 0 ? (
+                  <SelectItem value="empty" disabled>
+                    No hay fincas disponibles
+                  </SelectItem>
+                ) : (
+                  userFincas.map((finca) => (
+                    <SelectItem key={finca.id} value={finca.id}>
+                      {finca.name} - {finca.location}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </CardContent>
@@ -365,7 +466,7 @@ export function LotesValvulasManagement() {
               }}
             >
               <Layers className="h-4 w-4 mr-2" />
-              Lotes ({filteredLotes.length})
+              Lotes ({lotes.length})
             </TabsTrigger>
             <TabsTrigger
               value="valvulas"
@@ -469,8 +570,8 @@ export function LotesValvulasManagement() {
                         <div className="col-span-full">
                           <Label className="text-sm font-medium mb-4 block">Definir Coordenadas del Lote</Label>
                           <LoteMapEditor
-                            center={selectedFinca.mapCoordinates}
-                            zoom={selectedFinca.mapCoordinates.zoom}
+                            center={selectedFinca.mapCoordinates || { lat: -2.1894, lng: -79.889 }}
+                            zoom={selectedFinca.mapCoordinates?.zoom || 15}
                             coordinates={loteFormData.coordinates}
                             onCoordinatesChange={(coordinates) => setLoteFormData({ ...loteFormData, coordinates })}
                             title="Polígono del Lote"
@@ -507,14 +608,39 @@ export function LotesValvulasManagement() {
 
             {/* Lista de Lotes */}
             <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-              {filteredLotes.map((lote) => {
-                const loteValvulas = valvulas.filter((v) => v.loteId === lote.id)
-                return (
-                  <Card
-                    key={lote.id}
-                    className="shadow-lg border-0 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-                    style={{ backgroundColor: "#F9F6F3" }}
-                  >
+              {loadingLotes ? (
+                <div className="col-span-full flex justify-center items-center py-8">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1C352D] mx-auto mb-2"></div>
+                    <p className="text-[#1C352D]">Cargando lotes...</p>
+                  </div>
+                </div>
+              ) : lotesError ? (
+                <div className="col-span-full flex justify-center items-center py-8">
+                  <div className="text-center text-red-600">
+                    <p>Error al cargar lotes: {lotesError}</p>
+                    <Button 
+                      onClick={() => fetchLotes(selectedFincaId)} 
+                      variant="outline" 
+                      className="mt-2"
+                    >
+                      Reintentar
+                    </Button>
+                  </div>
+                </div>
+              ) : lotes.length === 0 ? (
+                <div className="col-span-full flex justify-center items-center py-8">
+                  <p className="text-[#1C352D]">No hay lotes registrados para esta finca</p>
+                </div>
+              ) : (
+                lotes.map((lote) => {
+                  const loteValvulas = valvulas.filter((v) => v.loteId === lote.id)
+                  return (
+                    <Card
+                      key={lote.id}
+                      className="shadow-lg border-0 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                      style={{ backgroundColor: "#F9F6F3" }}
+                    >
                     <CardHeader className="rounded-t-lg pb-3" style={{ backgroundColor: "#1C352D", color: "#F9F6F3" }}>
                       <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
                         <Layers className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
@@ -598,8 +724,8 @@ export function LotesValvulasManagement() {
                   </Card>
                 )
               })}
-            </div>
 
+            </div>
             {filteredLotes.length === 0 && (
               <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
                 <CardContent className="text-center py-12">
@@ -633,7 +759,7 @@ export function LotesValvulasManagement() {
               >
                 <DialogTrigger asChild>
                   <Button
-                    disabled={filteredLotes.length === 0}
+                    disabled={lotes.length === 0}
                     className="shadow-lg transition-all duration-300 transform hover:scale-105"
                     style={{
                       backgroundColor: "#1C352D",
@@ -706,7 +832,7 @@ export function LotesValvulasManagement() {
                                   <SelectValue placeholder="Seleccionar lote" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {filteredLotes.map((lote) => (
+                                  {lotes.map((lote) => (
                                     <SelectItem key={lote.id} value={lote.id}>
                                       {lote.name} - {lote.cultivo}
                                     </SelectItem>
@@ -925,7 +1051,7 @@ export function LotesValvulasManagement() {
                 <div className="block sm:hidden">
                   <div className="space-y-3 p-4">
                     {paginatedValvulas.map((valvula) => {
-                      const lote = filteredLotes.find((l) => l.id === valvula.loteId)
+                      const lote = lotes.find((l) => l.id === valvula.loteId)
                       return (
                         <Card key={valvula.id} className="p-4 border border-gray-200">
                           <div className="space-y-3">
@@ -1036,7 +1162,7 @@ export function LotesValvulasManagement() {
                     </TableHeader>
                     <TableBody>
                       {paginatedValvulas.map((valvula) => {
-                        const lote = filteredLotes.find((l) => l.id === valvula.loteId)
+                        const lote = lotes.find((l) => l.id === valvula.loteId)
                         return (
                           <TableRow key={valvula.id} style={{ borderColor: "#A6B28B" }}>
                             <TableCell>

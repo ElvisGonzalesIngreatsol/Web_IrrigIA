@@ -362,6 +362,29 @@ class ApiService {
       throw new Error(response.error || "Error al eliminar finca")
     }
   }
+
+   async getAllFincasFromTodas(params?: any): Promise<ApiResponse<any[]>> {
+    const queryString = params ? `?${new URLSearchParams(params).toString()}` : ""
+    return this.request(`/api/fincas/todas${queryString}`)
+  }
+
+  // async getFincas(): Promise<any[]> {
+  //   const response = await this.request<any[]>("/api/fincas/all")
+  //   if (!response.success) {
+  //     throw new Error(response.error || "Error al obtener fincas")
+  //   }
+  //   return response.data || []
+  // }
+
+  // async getAllFincasFromTodas(): Promise<any[]> {
+  //   const response = await this.request<any[]>("/api/all/todas"){
+  //     method: ""
+  //   }
+  //   if (!response.success) {
+  //     throw new Error(response.error || "Error al obtener fincas")
+  //   }
+  //   return response.data || []
+  // }
 }
 
 export const apiService = new ApiService()
