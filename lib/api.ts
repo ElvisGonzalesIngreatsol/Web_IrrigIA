@@ -363,28 +363,50 @@ class ApiService {
     }
   }
 
-   async getAllFincasFromTodas(params?: any): Promise<ApiResponse<any[]>> {
+  async getAllFincasFromTodas(params?: any): Promise<ApiResponse<any[]>> {
     const queryString = params ? `?${new URLSearchParams(params).toString()}` : ""
     return this.request(`/api/fincas/todas${queryString}`)
   }
 
-  // async getFincas(): Promise<any[]> {
-  //   const response = await this.request<any[]>("/api/fincas/all")
-  //   if (!response.success) {
-  //     throw new Error(response.error || "Error al obtener fincas")
-  //   }
-  //   return response.data || []
-  // }
+  async createLote(loteData: {
+    nombre: string
+    fincaId: number
+    hectareas: number
+    state?: boolean
+    valvulaIds?: number[]
+    coordinates: { lat: number; lng: number }[]
+  }): Promise<ApiResponse<any>> {
+    return this.request("/api/lotes", {
+      method: "POST",
+      body: JSON.stringify(loteData),
+    })
+  }
 
-  // async getAllFincasFromTodas(): Promise<any[]> {
-  //   const response = await this.request<any[]>("/api/all/todas"){
-  //     method: ""
-  //   }
-  //   if (!response.success) {
-  //     throw new Error(response.error || "Error al obtener fincas")
-  //   }
-  //   return response.data || []
-  // }
+  async updateLote(loteId: string, loteData: {
+    nombre: string
+    fincaId: number
+    hectareas: number
+    state?: boolean
+    valvulaIds?: number[]
+    coordinates: { lat: number; lng: number }[]
+  }): Promise<ApiResponse<any>> {
+    return this.request(`/api/lotes/${loteId}`, {
+      method: "PATCH",
+      body: JSON.stringify(loteData),
+    })
+  }
+
+  async deleteLote(loteId: string): Promise<ApiResponse<any>> {
+    const response = await this.request(`/api/lotes/${loteId}`, {
+      method: "DELETE",
+    })
+    // Si la respuesta es { success: true }, devolverlo así explícitamente
+    if (response && response.success) {
+      return { success: true }
+    }
+    return response
+  }
+
 }
 
 export const apiService = new ApiService()

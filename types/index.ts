@@ -57,7 +57,7 @@ export interface Finca {
 
 export interface Lote {
   id: number
-  name: string
+  nombre: string
   fincaId: number
   area: number
   crop: string

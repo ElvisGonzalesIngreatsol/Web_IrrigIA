@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,7 +39,8 @@ export function LotesValvulasManagement() {
   const [loadingFincas, setLoadingFincas] = useState(true)
   const [fincasError, setFincasError] = useState<string | null>(null)
 
-  const [lotes, setLotes] = useState<any[]>([])
+  // NUEVO: Estado para lotes cargados dinámicamente
+  const [lotes, setLotes] = useState<Lote[]>([])
   const [loadingLotes, setLoadingLotes] = useState(false)
   const [lotesError, setLotesError] = useState<string | null>(null)
 
@@ -56,9 +57,11 @@ export function LotesValvulasManagement() {
   const [editingLote, setEditingLote] = useState<string | null>(null)
   const [viewingLote, setViewingLote] = useState<string | null>(null)
   const [loteFormData, setLoteFormData] = useState({
-    name: "",
-    cultivo: "",
-    descripcion: "",
+    nombre: "",
+    fincaId: "",
+    hectareas: "",
+    state: true,
+    valvulaIds: [],
     coordinates: [] as LoteCoordinate[],
   })
 
@@ -80,52 +83,43 @@ export function LotesValvulasManagement() {
     maintenanceNotes: "",
   })
 
-  const selectedFinca = selectedFincaId ? fincas.find((f) => f.id === selectedFincaId) : null
-
-  const fetchLotes = async (fincaId: string) => {
-    if (!fincaId) {
+  // NUEVO: Cargar lotes de la finca seleccionada
+  useEffect(() => {
+    if (!selectedFincaId) {
       setLotes([])
       return
     }
-
     setLoadingLotes(true)
     setLotesError(null)
-
-    try {
-      console.log(`[v0] Fetching lotes for finca: ${fincaId}`)
-      const response = await apiService.getLotes({ fincaId })
-
-      if (response.success && response.data) {
-        console.log(`[v0] Lotes loaded successfully:`, response.data.length)
-        setLotes(Array.isArray(response.data) ? response.data : [])
-      } else {
-        console.error(`[v0] Error loading lotes:`, response.error)
-        setLotesError(response.error || "Error al cargar lotes")
+    apiService
+      .getLotes(selectedFincaId)
+      .then((response) => {
+        if (response.success) {
+          setLotes(response.data.data || [])
+        } else {
+          setLotes([])
+          setLotesError(response.error || "Error al obtener lotes")
+        }
+      })
+      .catch((error) => {
         setLotes([])
-      }
-    } catch (error) {
-      console.error(`[v0] Exception loading lotes:`, error)
-      setLotesError("Error de conexión al cargar lotes")
-      setLotes([])
-    } finally {
-      setLoadingLotes(false)
-    }
-  }
-
-  useEffect(() => {
-    if (selectedFincaId) {
-      fetchLotes(selectedFincaId)
-    } else {
-      setLotes([])
-    }
+        setLotesError(error instanceof Error ? error.message : "Error al cargar lotes")
+      })
+      .finally(() => setLoadingLotes(false))
   }, [selectedFincaId])
+
+  // Filtrar lotes por finca seleccionada (asegura que solo se muestren los lotes de la finca seleccionada)
+  const filteredLotes = selectedFincaId
+    ? lotes.filter((lote) => lote.fincaId === selectedFincaId)
+    : []
+  const selectedFinca = selectedFincaId ? fincas.find((f) => f.id === selectedFincaId) : null
 
   const filteredValvulas = valvulas
     .filter((valvula) => valvula.fincaId === selectedFincaId)
     .filter(
       (valvula) =>
         valvula.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lotes
+        filteredLotes
           .find((l) => l.id === valvula.loteId)
           ?.name.toLowerCase()
           .includes(searchTerm.toLowerCase()),
@@ -153,9 +147,11 @@ export function LotesValvulasManagement() {
 
   const resetLoteForm = () => {
     setLoteFormData({
-      name: "",
-      cultivo: "",
-      descripcion: "",
+      nombre: "",
+      fincaId: "",
+      hectareas: "",
+      state: true,
+      valvulaIds: [],
       coordinates: [],
     })
     setEditingLote(null)
@@ -176,59 +172,79 @@ export function LotesValvulasManagement() {
 
     try {
       const loteData = {
-        ...loteFormData,
-        fincaId: selectedFincaId,
-        area: calculateArea(loteFormData.coordinates),
-        centerCoordinates: calculateCenter(loteFormData.coordinates),
+        nombre: loteFormData.nombre,
+        fincaId: Number(selectedFincaId),
+        hectareas: Number(loteFormData.hectareas) || 0,
+        state: loteFormData.state,
+        valvulaIds: loteFormData.valvulaIds,
+        coordinates: loteFormData.coordinates,
       }
 
+      let response
       if (editingLote) {
-        updateLote(editingLote, loteData)
-        showSuccess("Lote Actualizado", `El lote "${loteFormData.name}" ha sido actualizado exitosamente`)
+        response = await apiService.updateLote(editingLote, loteData)
+        if (response && response.success) {
+          showSuccess("Lote Actualizado", `El lote "${loteFormData.nombre}" ha sido actualizado exitosamente`)
+        } else {
+          showError("Error", response?.error || "No se pudo actualizar el lote")
+          return
+        }
       } else {
-        addLote(loteData)
-        showSuccess("Lote Creado", `El lote "${loteFormData.name}" ha sido creado exitosamente`)
+        response = await apiService.createLote(loteData)
+        if (response && response.success) {
+          showSuccess("Lote Creado", `El lote "${loteFormData.nombre}" ha sido creado exitosamente`)
+        } else {
+          showError("Error", response?.error || "No se pudo crear el lote")
+          return
+        }
       }
-
-      fetchLotes(selectedFincaId)
 
       resetLoteForm()
       setIsLoteDialogOpen(false)
-    } catch (error) {
-      showError("Error", "Ocurrió un error al procesar el lote")
+      reloadLotes()
+    } catch (error: any) {
+      showError("Error", error?.message || "Ocurrió un error al procesar el lote")
     }
-  }
-
-  const handleEditLote = (lote: any) => {
-    setLoteFormData({
-      name: lote.name,
-      cultivo: lote.cultivo,
-      descripcion: lote.descripcion || "",
-      coordinates: lote.coordinates,
-    })
-    setEditingLote(lote.id)
-    setIsLoteDialogOpen(true)
   }
 
   const handleDeleteLote = (lote: Lote) => {
     Swal.fire({
       title: "¿Estás seguro?",
-      text: `Se eliminará el lote "${lote.name}" y todas sus válvulas asociadas`,
+      text: `Se eliminará el lote "${lote.nombre}" y todas sus válvulas asociadas`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#1C352D",
       cancelButtonColor: "#A6B28B",
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        deleteLote(lote.id)
-        Swal.fire({
-          title: "¡Eliminado!",
-          text: "El lote ha sido eliminado correctamente",
-          icon: "success",
-          confirmButtonColor: "#1C352D",
-        })
+        try {
+          const response = await apiService.deleteLote(lote.id)
+          if (response && response.success) {
+            Swal.fire({
+              title: "¡Eliminado!",
+              text: "El lote ha sido eliminado correctamente",
+              icon: "success",
+              confirmButtonColor: "#1C352D",
+            })
+            reloadLotes()
+          } else {
+            Swal.fire({
+              title: "Error",
+              text: response?.error || "No se pudo eliminar el lote",
+              icon: "error",
+              confirmButtonColor: "#1C352D",
+            })
+          }
+        } catch (error: any) {
+          Swal.fire({
+            title: "Error",
+            text: error?.message || "No se pudo eliminar el lote",
+            icon: "error",
+            confirmButtonColor: "#1C352D",
+          })
+        }
       }
     })
   }
@@ -357,16 +373,16 @@ export function LotesValvulasManagement() {
         setLoadingFincas(true)
         setFincasError(null)
         const response = await apiService.getAllFincas()
-        if (response.success && response.data) {
-          setFincas(response.data)
+        if (response.success) {
+          setFincas(response.data.data || [])
+          console.log("[v0] Fincas loaded from getAllFincas:", response.data.data?.length || 0)
         } else {
-          setFincasError("Error al cargar las fincas")
-          showError("Error al cargar las fincas")
+          throw new Error(response.error || "Error al obtener fincas")
         }
       } catch (error) {
-        console.error("Error fetching fincas:", error)
-        setFincasError("Error al cargar las fincas")
-        showError("Error al cargar las fincas")
+        console.error("[v0] Error loading fincas:", error)
+        setFincasError(error instanceof Error ? error.message : "Error al cargar fincas")
+        showError("Error al cargar las fincas disponibles")
       } finally {
         setLoadingFincas(false)
       }
@@ -375,13 +391,41 @@ export function LotesValvulasManagement() {
     fetchFincas()
   }, [showError])
 
-  const filteredLotes = useMemo(() => {
-    return lotes.filter(
-      (lote) =>
-        lote.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lote.cultivo.toLowerCase().includes(searchTerm.toLowerCase()),
-    )
-  }, [lotes, searchTerm])
+  // Agrega la función reloadLotes para recargar los lotes después de eliminar o crear
+  const reloadLotes = () => {
+    if (!selectedFincaId) return
+    setLoadingLotes(true)
+    setLotesError(null)
+    apiService
+      .getLotes(selectedFincaId)
+      .then((response) => {
+        if (response.success) {
+          setLotes(response.data.data || [])
+        } else {
+          setLotes([])
+          setLotesError(response.error || "Error al obtener lotes")
+        }
+      })
+      .catch((error) => {
+        setLotes([])
+        setLotesError(error instanceof Error ? error.message : "Error al cargar lotes")
+      })
+      .finally(() => setLoadingLotes(false))
+  }
+
+  // Agrega la función handleEditLote para editar un lote y cargar sus datos en el formulario
+  const handleEditLote = (lote: any) => {
+    setLoteFormData({
+      nombre: lote.nombre || "",
+      fincaId: lote.fincaId || "",
+      hectareas: lote.hectareas?.toString() || "",
+      state: typeof lote.state === "boolean" ? lote.state : true,
+      valvulaIds: lote.valvulaIds || [],
+      coordinates: lote.coordinates || [],
+    })
+    setEditingLote(lote.id)
+    setIsLoteDialogOpen(true)
+  }
 
   return (
     <div className="space-y-8 p-6 min-h-screen" style={{ backgroundColor: "#F9F6F3" }}>
@@ -395,7 +439,6 @@ export function LotesValvulasManagement() {
             : `Administra los lotes y válvulas de tu finca`}
         </p>
       </div>
-      
 
       {/* Selector de Finca - Solo si es admin o si no tiene finca asignada */}
       {(user?.role === "ADMIN" || !user?.fincaId) && (
@@ -425,6 +468,18 @@ export function LotesValvulasManagement() {
                   }
                 />
               </SelectTrigger>
+              {/* <SelectContent>
+                {userFincas.map((finca) => (
+                  <SelectItem key={finca.id} value={finca.id.toString()}>
+                    {finca.name} - {finca.location}
+                  </SelectItem>
+                ))}
+                {!userFincas && fincas.length === 0 && (
+                  <SelectItem value="no-fincas" disabled>
+                    No hay fincas disponibles
+                  </SelectItem>
+                )}
+              </SelectContent> */}
               <SelectContent>
                 {loadingFincas ? (
                   <SelectItem value="loading" disabled>
@@ -466,7 +521,7 @@ export function LotesValvulasManagement() {
               }}
             >
               <Layers className="h-4 w-4 mr-2" />
-              Lotes ({lotes.length})
+              Lotes ({filteredLotes.length})
             </TabsTrigger>
             <TabsTrigger
               value="valvulas"
@@ -483,264 +538,218 @@ export function LotesValvulasManagement() {
 
           {/* Tab de Lotes */}
           <TabsContent value="lotes" className="space-y-6 mt-6">
-            <div
-              className="flex justify-between items-center rounded-xl p-6 shadow-lg border-0"
-              style={{ backgroundColor: "#F9F6F3" }}
-            >
-              <h2 className="text-2xl font-semibold" style={{ color: "#1C352D" }}>
-                Lotes de {selectedFinca?.name}
-              </h2>
-              <Dialog
-                open={isLoteDialogOpen}
-                onOpenChange={(open) => {
-                  if (!open) {
-                    resetLoteForm()
-                  }
-                  setIsLoteDialogOpen(open)
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button
-                    className="shadow-lg transition-all duration-300 transform hover:scale-105"
-                    style={{
-                      backgroundColor: "#1C352D",
-                      color: "#F9F6F3",
-                      borderColor: "#A6B28B",
+            {/* Mostrar loading o error de lotes */}
+            {loadingLotes && (
+              <div className="text-center text-lg text-gray-500 py-8">Cargando lotes...</div>
+            )}
+            {lotesError && (
+              <div className="text-center text-lg text-red-500 py-8">{lotesError}</div>
+            )}
+            {!loadingLotes && !lotesError && (
+              <>
+                <div
+                  className="flex justify-between items-center rounded-xl p-6 shadow-lg border-0"
+                  style={{ backgroundColor: "#F9F6F3" }}
+                >
+                  <h2 className="text-2xl font-semibold" style={{ color: "#1C352D" }}>
+                    Lotes de {selectedFinca?.name}
+                  </h2>
+                  <Dialog
+                    open={isLoteDialogOpen}
+                    onOpenChange={(open) => {
+                      if (!open) {
+                        resetLoteForm()
+                      }
+                      setIsLoteDialogOpen(open)
                     }}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nuevo Lote
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle className="text-2xl font-bold text-gray-800">
-                      {editingLote ? "Editar Lote" : "Crear Nuevo Lote"}
-                    </DialogTitle>
-                    <DialogDescription className="text-gray-600">
-                      {editingLote
-                        ? "Modifica los datos del lote existente"
-                        : "Crea un nuevo lote dentro de la finca seleccionada"}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleLoteSubmit}>
-                    <div className="grid gap-6 py-4">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="lote-name" className="text-right font-medium">
-                              Nombre
-                            </Label>
-                            <Input
-                              id="lote-name"
-                              value={loteFormData.name}
-                              onChange={(e) => setLoteFormData({ ...loteFormData, name: e.target.value })}
-                              className="col-span-3 border-2 focus:border-blue-500 transition-colors"
-                              required
-                            />
-                          </div>
-                          <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="lote-cultivo" className="text-right font-medium">
-                              Cultivo
-                            </Label>
-                            <Input
-                              id="lote-cultivo"
-                              value={loteFormData.cultivo}
-                              onChange={(e) => setLoteFormData({ ...loteFormData, cultivo: e.target.value })}
-                              className="col-span-3 border-2 focus:border-blue-500 transition-colors"
-                              required
-                            />
-                          </div>
-                          <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="lote-descripcion" className="text-right font-medium">
-                              Descripción
-                            </Label>
-                            <Textarea
-                              id="lote-descripcion"
-                              value={loteFormData.descripcion}
-                              onChange={(e) => setLoteFormData({ ...loteFormData, descripcion: e.target.value })}
-                              className="col-span-3 border-2 focus:border-blue-500 transition-colors"
-                              rows={3}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {selectedFinca && (
-                        <div className="col-span-full">
-                          <Label className="text-sm font-medium mb-4 block">Definir Coordenadas del Lote</Label>
-                          <LoteMapEditor
-                            center={selectedFinca.mapCoordinates || { lat: -2.1894, lng: -79.889 }}
-                            zoom={selectedFinca.mapCoordinates?.zoom || 15}
-                            coordinates={loteFormData.coordinates}
-                            onCoordinatesChange={(coordinates) => setLoteFormData({ ...loteFormData, coordinates })}
-                            title="Polígono del Lote"
-                            fincaBounds={selectedFinca.coordinates}
-                            isLote={true}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <DialogFooter className="gap-3">
+                    <DialogTrigger asChild>
                       <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setIsLoteDialogOpen(false)
-                          resetLoteForm()
+                        className="shadow-lg transition-all duration-300 transform hover:scale-105"
+                        style={{
+                          backgroundColor: "#1C352D",
+                          color: "#F9F6F3",
+                          borderColor: "#A6B28B",
                         }}
-                        className="border-2 hover:bg-gray-50"
                       >
-                        Cancelar
+                        <Plus className="h-4 w-4 mr-2" />
+                        Nuevo Lote
                       </Button>
-                      <Button
-                        type="submit"
-                        disabled={loteFormData.coordinates.length < 3}
-                        className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 bg-[rgba(28,53,45,1)]"
-                      >
-                        {editingLote ? "Actualizar Lote" : "Crear Lote"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="text-2xl font-bold text-gray-800">
+                          {editingLote ? "Editar Lote" : "Crear Nuevo Lote"}
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-600">
+                          {editingLote
+                            ? "Modifica los datos del lote existente"
+                            : "Crea un nuevo lote dentro de la finca seleccionada"}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleLoteSubmit}>
+                        <div className="grid gap-6 py-4">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="lote-nombre" className="text-right font-medium">
+                                  Nombre
+                                </Label>
+                                <Input
+                                  id="lote-nombre"
+                                  value={loteFormData.nombre}
+                                  onChange={(e) => setLoteFormData({ ...loteFormData, nombre: e.target.value })}
+                                  className="col-span-3 border-2 focus:border-blue-500 transition-colors"
+                                  required
+                                />
+                              </div>
+                            </div>
+                          </div>
 
-            {/* Lista de Lotes */}
-            <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-              {loadingLotes ? (
-                <div className="col-span-full flex justify-center items-center py-8">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1C352D] mx-auto mb-2"></div>
-                    <p className="text-[#1C352D]">Cargando lotes...</p>
-                  </div>
+                          {selectedFinca && (
+                            <div className="col-span-full">
+                              <Label className="text-sm font-medium mb-4 block">Definir Coordenadas del Lote</Label>
+                              <LoteMapEditor
+                                center={selectedFinca.mapCoordinates || { lat: -2.1894, lng: -79.889 }}
+                                zoom={selectedFinca.mapCoordinates?.zoom || 15}
+                                coordinates={loteFormData.coordinates}
+                                onCoordinatesChange={(coordinates) => setLoteFormData({ ...loteFormData, coordinates })}
+                                title="Polígono del Lote"
+                                fincaBounds={selectedFinca.coordinates}
+                                isLote={true}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <DialogFooter className="gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setIsLoteDialogOpen(false)
+                              resetLoteForm()
+                            }}
+                            className="border-2 hover:bg-gray-50"
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="submit"
+                            disabled={loteFormData.coordinates.length < 3}
+                            className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 bg-[rgba(28,53,45,1)]"
+                          >
+                            {editingLote ? "Actualizar Lote" : "Crear Lote"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
                 </div>
-              ) : lotesError ? (
-                <div className="col-span-full flex justify-center items-center py-8">
-                  <div className="text-center text-red-600">
-                    <p>Error al cargar lotes: {lotesError}</p>
-                    <Button 
-                      onClick={() => fetchLotes(selectedFincaId)} 
-                      variant="outline" 
-                      className="mt-2"
-                    >
-                      Reintentar
-                    </Button>
-                  </div>
-                </div>
-              ) : lotes.length === 0 ? (
-                <div className="col-span-full flex justify-center items-center py-8">
-                  <p className="text-[#1C352D]">No hay lotes registrados para esta finca</p>
-                </div>
-              ) : (
-                lotes.map((lote) => {
-                  const loteValvulas = valvulas.filter((v) => v.loteId === lote.id)
-                  return (
-                    <Card
-                      key={lote.id}
-                      className="shadow-lg border-0 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-                      style={{ backgroundColor: "#F9F6F3" }}
-                    >
-                    <CardHeader className="rounded-t-lg pb-3" style={{ backgroundColor: "#1C352D", color: "#F9F6F3" }}>
-                      <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
-                        <Layers className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-                        <span className="truncate">{lote.name}</span>
-                      </CardTitle>
-                      <CardDescription className="text-xs sm:text-sm truncate" style={{ color: "#F5C9B0" }}>
-                        {lote.cultivo}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-4 sm:p-6">
-                      <div className="space-y-3 sm:space-y-4">
-                        <div className="flex justify-between text-xs sm:text-sm">
-                          <span style={{ color: "#1C352D" }}>Área:</span>
-                          <span className="font-semibold" style={{ color: "#1C352D" }}>
-                            {lote.area.toFixed(2)} Ha
+
+                {/* Lista de Lotes */}
+                <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+                  {filteredLotes.map((lote) => {
+                    const loteValvulas = valvulas.filter((v) => v.loteId === lote.id)
+                    return (
+                      <Card
+                        key={lote.id}
+                        className="shadow-lg border-0 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                        style={{ backgroundColor: "#F9F6F3" }}
+                      >
+                        <CardHeader className="rounded-t-lg pb-3 flex items-center" style={{ backgroundColor: "#1C352D", color: "#F9F6F3" }}>
+                          <Layers className="h-5 w-5 mr-2" />
+                          <span className="font-bold text-lg" style={{ color: "#F9F6F3" }}>
+                            {lote.nombre}
                           </span>
-                        </div>
-                        <div className="flex justify-between text-xs sm:text-sm">
-                          <span style={{ color: "#1C352D" }}>Válvulas:</span>
-                          <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
-                            {loteValvulas.length}
-                          </Badge>
-                        </div>
-                        <div className="flex justify-between text-xs sm:text-sm">
-                          <span style={{ color: "#1C352D" }}>Puntos:</span>
-                          <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
-                            {lote.coordinates.length}
-                          </Badge>
-                        </div>
-                        {lote.descripcion && (
-                          <p className="text-xs truncate" style={{ color: "#1C352D" }}>
-                            {lote.descripcion}
-                          </p>
-                        )}
-                        <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 border-2 transition-colors bg-transparent text-xs sm:text-sm h-8 sm:h-9"
-                            style={{
-                              borderColor: "#A6B28B",
-                              color: "#1C352D",
-                              backgroundColor: "transparent",
-                            }}
-                            onClick={() => setViewingLote(lote.id)}
-                          >
-                            <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-                            <span>Ver</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 border-2 transition-colors bg-transparent text-xs sm:text-sm h-8 sm:h-9"
-                            style={{
-                              borderColor: "#A6B28B",
-                              color: "#1C352D",
-                              backgroundColor: "transparent",
-                            }}
-                            onClick={() => handleEditLote(lote)}
-                          >
-                            <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-                            <span>Editar</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 border-2 transition-colors bg-transparent text-xs sm:text-sm h-8 sm:h-9"
-                            style={{
-                              borderColor: "#F5C9B0",
-                              color: "#1C352D",
-                              backgroundColor: "transparent",
-                            }}
-                            onClick={() => handleDeleteLote(lote)}
-                          >
-                            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-                            <span>Eliminar</span>
-                          </Button>
-                        </div>
-                      </div>
+                        </CardHeader>
+                        <CardContent className="p-4 sm:p-6">
+                          <div className="space-y-3 sm:space-y-4">
+                            <div className="flex justify-between text-xs sm:text-sm">
+                              <span style={{ color: "#1C352D" }}>Área:</span>
+                              <span className="font-semibold" style={{ color: "#1C352D" }}>
+                                {lote.hectareas.toFixed(2)} Ha
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-xs sm:text-sm">
+                              <span style={{ color: "#1C352D" }}>Válvulas:</span>
+                              <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
+                                {loteValvulas.length}
+                              </Badge>
+                            </div>
+                            <div className="flex justify-between text-xs sm:text-sm">
+                              <span style={{ color: "#1C352D" }}>Puntos:</span>
+                              <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
+                                {lote.coordinates.length}
+                              </Badge>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 border-2 transition-colors bg-transparent text-xs sm:text-sm h-8 sm:h-9"
+                                style={{
+                                  borderColor: "#A6B28B",
+                                  color: "#1C352D",
+                                  backgroundColor: "transparent",
+                                }}
+                                onClick={() => setViewingLote(lote.id)}
+                              >
+                                <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+                                <span>Ver</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 border-2 transition-colors bg-transparent text-xs sm:text-sm h-8 sm:h-9"
+                                style={{
+                                  borderColor: "#A6B28B",
+                                  color: "#1C352D",
+                                  backgroundColor: "transparent",
+                                }}
+                                onClick={() => handleEditLote(lote)}
+                              >
+                                <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+                                <span>Editar</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 border-2 transition-colors bg-transparent text-xs sm:text-sm h-8 sm:h-9"
+                                style={{
+                                  borderColor: "#F5C9B0",
+                                  color: "#1C352D",
+                                  backgroundColor: "transparent",
+                                }}
+                                onClick={() => handleDeleteLote(lote)}
+                              >
+                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+                                <span>Eliminar</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+
+                {filteredLotes.length === 0 && (
+                  <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
+                    <CardContent className="text-center py-12">
+                      <Layers className="h-16 w-16 text-gray-300 mx-auto mb-6" />
+                      <h3 className="text-xl font-semibold text-gray-700 mb-3">No hay lotes</h3>
+                      <p className="text-gray-500 mb-6">Crea el primer lote para esta finca</p>
+                      <Button
+                        onClick={() => setIsLoteDialogOpen(true)}
+                        className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white shadow-lg bg-[rgba(28,53,45,1)]"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Crear Primer Lote
+                      </Button>
                     </CardContent>
                   </Card>
-                )
-              })}
-
-            </div>
-            {filteredLotes.length === 0 && (
-              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-                <CardContent className="text-center py-12">
-                  <Layers className="h-16 w-16 text-gray-300 mx-auto mb-6" />
-                  <h3 className="text-xl font-semibold text-gray-700 mb-3">No hay lotes</h3>
-                  <p className="text-gray-500 mb-6">Crea el primer lote para esta finca</p>
-                  <Button
-                    onClick={() => setIsLoteDialogOpen(true)}
-                    className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white shadow-lg bg-[rgba(28,53,45,1)]"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Crear Primer Lote
-                  </Button>
-                </CardContent>
-              </Card>
+                )}
+              </>
             )}
           </TabsContent>
 
@@ -759,7 +768,7 @@ export function LotesValvulasManagement() {
               >
                 <DialogTrigger asChild>
                   <Button
-                    disabled={lotes.length === 0}
+                    disabled={filteredLotes.length === 0}
                     className="shadow-lg transition-all duration-300 transform hover:scale-105"
                     style={{
                       backgroundColor: "#1C352D",
@@ -832,7 +841,7 @@ export function LotesValvulasManagement() {
                                   <SelectValue placeholder="Seleccionar lote" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {lotes.map((lote) => (
+                                  {filteredLotes.map((lote) => (
                                     <SelectItem key={lote.id} value={lote.id}>
                                       {lote.name} - {lote.cultivo}
                                     </SelectItem>
@@ -1051,7 +1060,7 @@ export function LotesValvulasManagement() {
                 <div className="block sm:hidden">
                   <div className="space-y-3 p-4">
                     {paginatedValvulas.map((valvula) => {
-                      const lote = lotes.find((l) => l.id === valvula.loteId)
+                      const lote = filteredLotes.find((l) => l.id === valvula.loteId)
                       return (
                         <Card key={valvula.id} className="p-4 border border-gray-200">
                           <div className="space-y-3">
@@ -1162,7 +1171,7 @@ export function LotesValvulasManagement() {
                     </TableHeader>
                     <TableBody>
                       {paginatedValvulas.map((valvula) => {
-                        const lote = lotes.find((l) => l.id === valvula.loteId)
+                        const lote = filteredLotes.find((l) => l.id === valvula.loteId)
                         return (
                           <TableRow key={valvula.id} style={{ borderColor: "#A6B28B" }}>
                             <TableCell>
@@ -1269,7 +1278,7 @@ export function LotesValvulasManagement() {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-gray-800">{viewingLoteData?.name}</DialogTitle>
             <DialogDescription className="text-gray-600">
-              {viewingLoteData?.cultivo} - Área: {viewingLoteData?.area.toFixed(2)} Ha
+              {viewingLoteData?.cultivo} - Área: {viewingLoteData?.hectareas.toFixed(2)} Ha
             </DialogDescription>
           </DialogHeader>
           {viewingLoteData && selectedFinca && (
