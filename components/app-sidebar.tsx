@@ -32,6 +32,7 @@ import {
   ChevronUp,
   Brain,
   User,
+  PanelsLeftRightIcon,
 } from "lucide-react"
 
 export function AppSidebar() {
@@ -106,6 +107,11 @@ export function AppSidebar() {
       title: "Gestión de Fincas",
       icon: Building2,
       href: "/fincas",
+    },
+    {
+      title: "Gestión de Dispositivos",
+      icon: PanelsLeftRightIcon,
+      href: "/gestion-dispositivos", // Asegúrate que la ruta sea exactamente esta
     },
     {
       title: "Gestión de Lotes y Válvulas",

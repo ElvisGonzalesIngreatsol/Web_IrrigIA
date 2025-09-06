@@ -31,6 +31,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       "/monitoreo": "Monitoreo Avanzado",
       "/fincas": "Gestión de Fincas",
       "/lotes-valvulas": "Gestión de Lotes y Válvulas",
+      "/gestion-dispositivos": "Gestión de Dispositivos",
       "/usuarios": "Gestión de Usuarios",
       "/profile": "Mi Perfil",
     }

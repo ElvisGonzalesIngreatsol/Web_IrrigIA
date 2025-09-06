@@ -1,5 +1,5 @@
-//const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://back.irrigia.ingreatsol.com"
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.0.115:3001"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://back.irrigia.ingreatsol.com"
+//const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.0.115:3001"
 
 interface ApiResponse<T = any> {
   success: boolean
@@ -405,6 +405,44 @@ class ApiService {
       return { success: true }
     }
     return response
+  }
+
+  async getDevices(): Promise<ApiResponse<any>> {
+    return this.request("/api/devices")
+  }
+
+  async createDevice(deviceData: {
+    nombre: string
+    descripcion?: string
+    deviceEui: string
+    joinEui: string
+    deviceProfile: string
+    isDisabled: boolean
+  }): Promise<ApiResponse<any>> {
+    return this.request("/api/devices", {
+      method: "POST",
+      body: JSON.stringify(deviceData),
+    })
+  }
+
+  async updateDevice(deviceId: string, deviceData: {
+    nombre: string
+    descripcion?: string
+    deviceEui: string
+    joinEui: string
+    deviceProfile: string
+    isDisabled: boolean
+  }): Promise<ApiResponse<any>> {
+    return this.request(`/api/devices/${deviceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(deviceData),
+    })
+  }
+
+  async deleteDevice(deviceId: string): Promise<ApiResponse<any>> {
+    return this.request(`/api/devices/${deviceId}`, {
+      method: "DELETE",
+    })
   }
 
 }

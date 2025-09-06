@@ -843,7 +843,7 @@ export function LotesValvulasManagement() {
                                 <SelectContent>
                                   {filteredLotes.map((lote) => (
                                     <SelectItem key={lote.id} value={lote.id}>
-                                      {lote.name} - {lote.cultivo}
+                                      {lote.nombre}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
