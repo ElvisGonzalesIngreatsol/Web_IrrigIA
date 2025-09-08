@@ -44,6 +44,12 @@ export function LotesValvulasManagement() {
   const [loadingLotes, setLoadingLotes] = useState(false)
   const [lotesError, setLotesError] = useState<string | null>(null)
 
+  // NUEVO: Estado para dispositivos disponibles
+  const [devices, setDevices] = useState<{ id: string; nombre: string; descripcion?: string }[]>([])
+
+  // NUEVO: Estado para válvulas cargadas por finca
+  const [valvulasFinca, setValvulasFinca] = useState<Valvula[]>([])
+
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(6)
@@ -52,7 +58,7 @@ export function LotesValvulasManagement() {
   const userFincas = user?.role === "ADMIN" ? fincas : user?.fincaId ? fincas.filter((f) => f.id === user.fincaId) : []
 
   // Estados para lotes
-  const [selectedFincaId, setSelectedFincaId] = useState<string>(user?.fincaId || "")
+  const [selectedFincaId, setSelectedFincaId] = useState<string>(user?.fincaId?.toString() || "")
   const [isLoteDialogOpen, setIsLoteDialogOpen] = useState(false)
   const [editingLote, setEditingLote] = useState<string | null>(null)
   const [viewingLote, setViewingLote] = useState<string | null>(null)
@@ -69,7 +75,8 @@ export function LotesValvulasManagement() {
   const [isValvulaDialogOpen, setIsValvulaDialogOpen] = useState(false)
   const [editingValvula, setEditingValvula] = useState<string | null>(null)
   const [valvulaFormData, setValvulaFormData] = useState({
-    name: "",
+    nombre: "",
+    numero: 0, // NUEVO: campo para el número de la válvula (no visible)
     loteId: "",
     tipo: "aspersion" as "aspersion" | "goteo" | "microaspersion",
     caudal: "",
@@ -83,10 +90,11 @@ export function LotesValvulasManagement() {
     maintenanceNotes: "",
   })
 
-  // NUEVO: Cargar lotes de la finca seleccionada
+  // NUEVO: Cargar lotes y válvulas de la finca seleccionada
   useEffect(() => {
     if (!selectedFincaId) {
       setLotes([])
+      setValvulasFinca([])
       return
     }
     setLoadingLotes(true)
@@ -106,22 +114,45 @@ export function LotesValvulasManagement() {
         setLotesError(error instanceof Error ? error.message : "Error al cargar lotes")
       })
       .finally(() => setLoadingLotes(false))
+
+    // NUEVO: Cargar válvulas de la finca seleccionada
+    apiService
+      .getValvulas({ fincaId: selectedFincaId })
+      .then((response) => {
+        if (response.success) {
+          setValvulasFinca(response.data.data || [])
+        } else {
+          setValvulasFinca([])
+        }
+      })
+      .catch(() => setValvulasFinca([]))
   }, [selectedFincaId])
+
+  // NUEVO: Cargar dispositivos disponibles para el combo Device ID
+  useEffect(() => {
+    apiService.getDevices?.().then((response) => {
+      if (response && response.success) {
+        setDevices(response.data.data || [])
+      } else {
+        setDevices([])
+      }
+    })
+  }, [])
 
   // Filtrar lotes por finca seleccionada (asegura que solo se muestren los lotes de la finca seleccionada)
   const filteredLotes = selectedFincaId
-    ? lotes.filter((lote) => lote.fincaId === selectedFincaId)
+    ? lotes.filter((lote) => lote.fincaId.toString() === selectedFincaId.toString())
     : []
   const selectedFinca = selectedFincaId ? fincas.find((f) => f.id === selectedFincaId) : null
 
-  const filteredValvulas = valvulas
-    .filter((valvula) => valvula.fincaId === selectedFincaId)
+  // Cambia filteredValvulas para usar las válvulas de la finca seleccionada
+  const filteredValvulas = valvulasFinca
     .filter(
       (valvula) =>
-        valvula.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        valvula.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         filteredLotes
-          .find((l) => l.id === valvula.loteId)
-          ?.name.toLowerCase()
+          .find((l) => l.id === valvula.loteId.toString())
+          ?.nombre?.toLowerCase()
           .includes(searchTerm.toLowerCase()),
     )
 
@@ -252,7 +283,8 @@ export function LotesValvulasManagement() {
   // Funciones para válvulas
   const resetValvulaForm = () => {
     setValvulaFormData({
-      name: "",
+      nombre: "",
+      numero: 0,
       loteId: "",
       tipo: "aspersion",
       caudal: "",
@@ -268,43 +300,80 @@ export function LotesValvulasManagement() {
     setEditingValvula(null)
   }
 
+  // Crear válvula (POST /api/valvulas)
+  const createValvula = async (data: any) => {
+    return apiService.request("/api/valvulas", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Actualizar válvula (PATCH /api/valvulas/{id})
+  const updateValvulaBackend = async (id: string, data: any) => {
+    return apiService.request(`/api/valvulas/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Eliminar válvula (DELETE /api/valvulas/{id})
+  const deleteValvulaBackend = async (id: string) => {
+    return apiService.request(`/api/valvulas/${id}`, {
+      method: "DELETE",
+    })
+  }
+
   const handleValvulaSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     try {
       const valvulaData = {
-        ...valvulaFormData,
-        fincaId: selectedFincaId,
+        nombre: valvulaFormData.nombre,
+        numero: valvulaFormData.numero,
+        loteId: valvulaFormData.loteId,
+        tipo: valvulaFormData.tipo,
         caudal: valvulaFormData.caudal ? Number.parseFloat(valvulaFormData.caudal) : null,
         presion: valvulaFormData.presion ? Number.parseFloat(valvulaFormData.presion) : null,
-        isOpen: false,
-        flowRate: 0,
-        status: valvulaFormData.isActive ? "active" : ("inactive" as const),
+        descripcion: valvulaFormData.descripcion,
+        deviceId: valvulaFormData.deviceId,
         coordinates: valvulaFormData.coordinates,
-        deviceId: valvulaFormData.deviceId || `LORA_${Date.now()}`,
+        isActive: valvulaFormData.isActive,
         needsMaintenance: valvulaFormData.needsMaintenance,
         maintenanceDate: valvulaFormData.maintenanceDate || null,
         maintenanceNotes: valvulaFormData.maintenanceNotes || null,
+        fincaId: selectedFincaId,
       }
 
+      let response
       if (editingValvula) {
-        updateValvula(editingValvula, valvulaData)
-        showSuccess("Válvula Actualizada", `La válvula "${valvulaFormData.name}" ha sido actualizada exitosamente`)
+        response = await updateValvulaBackend(editingValvula, valvulaData)
       } else {
-        addValvula(valvulaData)
-        showSuccess("Válvula Creada", `La válvula "${valvulaFormData.name}" ha sido creada exitosamente`)
+        response = await createValvula(valvulaData)
       }
 
-      resetValvulaForm()
-      setIsValvulaDialogOpen(false)
-    } catch (error) {
-      showError("Error", "Ocurrió un error al procesar la válvula")
+      if (response && response.success) {
+        showSuccess(
+          editingValvula ? "Válvula Actualizada" : "Válvula Creada",
+          `La válvula "${valvulaFormData.nombre}" ha sido ${editingValvula ? "actualizada" : "creada"} exitosamente`
+        )
+        resetValvulaForm()
+        setIsValvulaDialogOpen(false)
+        // Recargar válvulas de la finca
+        apiService.getValvulas({ fincaId: selectedFincaId }).then((resp) => {
+          if (resp && resp.success) setValvulasFinca(resp.data.data || [])
+        })
+      } else {
+        showError("Error", response?.error || "No se pudo guardar la válvula")
+      }
+    } catch (error: any) {
+      showError("Error", error?.message || "Ocurrió un error al procesar la válvula")
     }
   }
 
   const handleEditValvula = (valvula: any) => {
     setValvulaFormData({
-      name: valvula.name || "",
+      nombre: valvula.nombre || "",
+      numero: typeof valvula.numero === "number" ? valvula.numero : 0,
       loteId: valvula.loteId || "",
       tipo: valvula.tipo || "aspersion",
       caudal: valvula.caudal?.toString() || "",
@@ -312,7 +381,7 @@ export function LotesValvulasManagement() {
       descripcion: valvula.descripcion || "",
       deviceId: valvula.deviceId || "",
       coordinates: valvula.coordinates || { lat: 0, lng: 0 },
-      isActive: valvula.status === "active",
+      isActive: valvula.isActive ?? valvula.status === "active",
       needsMaintenance: valvula.needsMaintenance || false,
       maintenanceDate: valvula.maintenanceDate || "",
       maintenanceNotes: valvula.maintenanceNotes || "",
@@ -324,22 +393,44 @@ export function LotesValvulasManagement() {
   const handleDeleteValvula = (valvula: Valvula) => {
     Swal.fire({
       title: "¿Estás seguro?",
-      text: `Se eliminará la válvula "${valvula.name}"`,
+      text: `Se eliminará la válvula "${valvula.nombre}"`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#1C352D",
       cancelButtonColor: "#A6B28B",
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
-        deleteValvula(valvula.id)
-        Swal.fire({
-          title: "¡Eliminado!",
-          text: "La válvula ha sido eliminada correctamente",
-          icon: "success",
-          confirmButtonColor: "#1C352D",
-        })
+        try {
+          const response = await deleteValvulaBackend(valvula.id.toString())
+          if (response && response.success) {
+            Swal.fire({
+              title: "¡Eliminado!",
+              text: "La válvula ha sido eliminada correctamente",
+              icon: "success",
+              confirmButtonColor: "#1C352D",
+            })
+            // Recargar válvulas de la finca
+            apiService.getValvulas({ fincaId: selectedFincaId }).then((resp) => {
+              if (resp && resp.success) setValvulasFinca(resp.data.data || [])
+            })
+          } else {
+            Swal.fire({
+              title: "Error",
+              text: response?.error || "No se pudo eliminar la válvula",
+              icon: "error",
+              confirmButtonColor: "#1C352D",
+            })
+          }
+        } catch (error: any) {
+          Swal.fire({
+            title: "Error",
+            text: error?.message || "No se pudo eliminar la válvula",
+            icon: "error",
+            confirmButtonColor: "#1C352D",
+          })
+        }
       }
     })
   }
@@ -496,7 +587,7 @@ export function LotesValvulasManagement() {
                 ) : (
                   userFincas.map((finca) => (
                     <SelectItem key={finca.id} value={finca.id}>
-                      {finca.name} - {finca.location}
+                      {finca.nombre} - {finca.location}
                     </SelectItem>
                   ))
                 )}
@@ -532,7 +623,7 @@ export function LotesValvulasManagement() {
               }}
             >
               <Droplets className="h-4 w-4 mr-2" />
-              Válvulas ({valvulas.filter((v) => v.fincaId === selectedFincaId).length})
+              Válvulas ({filteredValvulas.length})
             </TabsTrigger>
           </TabsList>
 
@@ -636,7 +727,13 @@ export function LotesValvulasManagement() {
                           <Button
                             type="submit"
                             disabled={loteFormData.coordinates.length < 3}
-                            className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 bg-[rgba(28,53,45,1)]"
+                            //className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 bg-[rgba(28,53,45,1)]"
+                            className="shadow-lg transition-all duration-300 transform hover:scale-105"
+                            style={{
+                              backgroundColor: "#1C352D",
+                              color: "#F9F6F3",
+                              borderColor: "#A6B28B",
+                            }}
                           >
                             {editingLote ? "Actualizar Lote" : "Crear Lote"}
                           </Button>
@@ -741,7 +838,13 @@ export function LotesValvulasManagement() {
                       <p className="text-gray-500 mb-6">Crea el primer lote para esta finca</p>
                       <Button
                         onClick={() => setIsLoteDialogOpen(true)}
-                        className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white shadow-lg bg-[rgba(28,53,45,1)]"
+                        //className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white shadow-lg bg-[rgba(28,53,45,1)]"
+                        className="shadow-lg transition-all duration-300 transform hover:scale-105"
+                          style={{
+                            backgroundColor: "#1C352D",
+                            color: "#F9F6F3",
+                            borderColor: "#A6B28B",
+                          }}
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Crear Primer Lote
@@ -765,6 +868,8 @@ export function LotesValvulasManagement() {
                   }
                   setIsValvulaDialogOpen(open)
                 }}
+                // No cerrar al hacer clic fuera
+                closeOnInteractOutside={false}
               >
                 <DialogTrigger asChild>
                   <Button
@@ -807,6 +912,7 @@ export function LotesValvulasManagement() {
                             Información Básica
                           </h3>
                           <div className="grid gap-4">
+                            {/* Cambia el nombre por un combo fijo */}
                             <div className="space-y-2">
                               <Label
                                 htmlFor="valvula-name"
@@ -815,15 +921,35 @@ export function LotesValvulasManagement() {
                               >
                                 Nombre *
                               </Label>
-                              <Input
-                                id="valvula-name"
-                                value={valvulaFormData.name}
-                                onChange={(e) => setValvulaFormData({ ...valvulaFormData, name: e.target.value })}
-                                className="border-2 transition-colors h-12"
-                                style={{ borderColor: "#A6B28B" }}
-                                placeholder="Ej: Válvula Norte A1"
+                              <Select
+                                value={valvulaFormData.nombre}
+                                onValueChange={(value) => {
+                                  // Asigna el nombre y el número oculto
+                                  let numero = 0
+                                  if (value === "Válvula 1") numero = 0
+                                  else if (value === "Válvula 2") numero = 1
+                                  else if (value === "Válvula 3") numero = 2
+                                  else if (value === "Válvula 4") numero = 3
+                                  setValvulaFormData((prev) => ({
+                                    ...prev,
+                                    nombre: value,
+                                    numero,
+                                  }))
+                                }}
                                 required
-                              />
+                              >
+                                <SelectTrigger className="border-2 h-12" style={{ borderColor: "#A6B28B" }}>
+                                  <SelectValue placeholder="Seleccionar nombre de válvula">
+                                    {valvulaFormData.nombre}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Válvula 1">Válvula 1</SelectItem>
+                                  <SelectItem value="Válvula 2">Válvula 2</SelectItem>
+                                  <SelectItem value="Válvula 3">Válvula 3</SelectItem>
+                                  <SelectItem value="Válvula 4">Válvula 4</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                             <div className="space-y-2">
                               <Label
@@ -838,11 +964,13 @@ export function LotesValvulasManagement() {
                                 onValueChange={(value) => setValvulaFormData({ ...valvulaFormData, loteId: value })}
                               >
                                 <SelectTrigger className="border-2 h-12" style={{ borderColor: "#A6B28B" }}>
-                                  <SelectValue placeholder="Seleccionar lote" />
+                                  <SelectValue placeholder="Seleccionar lote">
+                                    {filteredLotes.find((l) => l.id === valvulaFormData.loteId.toString())?.nombre}
+                                  </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                   {filteredLotes.map((lote) => (
-                                    <SelectItem key={lote.id} value={lote.id}>
+                                    <SelectItem key={lote.id.toString()} value={lote.id.toString()}>
                                       {lote.nombre}
                                     </SelectItem>
                                   ))}
@@ -853,14 +981,23 @@ export function LotesValvulasManagement() {
                               <Label htmlFor="valvula-device-id" className="text-sm font-medium text-gray-700">
                                 Device ID (LoRa) *
                               </Label>
-                              <Input
-                                id="valvula-device-id"
-                                value={valvulaFormData.deviceId || ""}
-                                onChange={(e) => setValvulaFormData({ ...valvulaFormData, deviceId: e.target.value })}
-                                className="border-2 focus:border-blue-500 transition-colors h-12"
-                                placeholder="LORA_XXX"
-                                required
-                              />
+                              <Select
+                                value={valvulaFormData.deviceId}
+                                onValueChange={(value) => setValvulaFormData({ ...valvulaFormData, deviceId: value })}
+                              >
+                                <SelectTrigger className="border-2 h-12" style={{ borderColor: "#A6B28B" }}>
+                                  <SelectValue placeholder="Seleccionar dispositivo">
+                                    {devices.find((d) => d.id === valvulaFormData.deviceId.toString())?.nombre}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {devices.map((device) => (
+                                    <SelectItem key={device.id.toString()} value={device.id.toString()}>
+                                      {device.nombre}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
                         </div>
@@ -1035,7 +1172,13 @@ export function LotesValvulasManagement() {
                         </Button>
                         <Button
                           type="submit"
-                          className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white shadow-lg bg-[rgba(28,53,45,1)]"
+                          //className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white shadow-lg bg-[rgba(28,53,45,1)]"}
+                          className="shadow-lg transition-all duration-300 transform hover:scale-105"
+                          style={{
+                            backgroundColor: "#1C352D",
+                            color: "#F9F6F3",
+                            borderColor: "#A6B28B",
+                          }}
                         >
                           {editingValvula ? "Actualizar Válvula" : "Crear Válvula"}
                         </Button>
@@ -1067,18 +1210,18 @@ export function LotesValvulasManagement() {
                             <div className="flex items-start justify-between">
                               <div className="min-w-0 flex-1">
                                 <h4 className="font-medium text-sm truncate" style={{ color: "#1C352D" }}>
-                                  {valvula.name}
+                                  {valvula.nombre}
                                 </h4>
-                                <p className="text-xs text-gray-500 truncate">{lote?.name}</p>
+                                <p className="text-xs text-gray-500 truncate">{lote?.nombre}</p>
                               </div>
                               <Badge
                                 className="text-xs font-medium ml-2 flex-shrink-0"
                                 style={{
-                                  backgroundColor: valvula.status === "active" ? "#1C352D" : "#F5C9B0",
-                                  color: valvula.status === "active" ? "#F9F6F3" : "#1C352D",
+                                  backgroundColor: valvula.estado === "ABIERTO" ? "#1C352D" : "#F5C9B0",
+                                  color: valvula.estado === "ABIERTO" ? "#F9F6F3" : "#1C352D",
                                 }}
                               >
-                                {valvula.status === "active" ? "Activo" : "Inactivo"}
+                                {valvula.estado === "ABIERTO" ? "ABIERTO" : "CERRADO"}
                               </Badge>
                             </div>
 
@@ -1178,13 +1321,13 @@ export function LotesValvulasManagement() {
                               <div className="flex items-center gap-2">
                                 <Droplets className="h-4 w-4 flex-shrink-0" style={{ color: "#A6B28B" }} />
                                 <span className="font-medium truncate" style={{ color: "#1C352D" }}>
-                                  {valvula.name}
+                                  {valvula.nombre}
                                 </span>
                               </div>
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
-                                {lote?.name || "Sin asignar"}
+                                {lote?.nombre || "Sin asignar"}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -1201,11 +1344,11 @@ export function LotesValvulasManagement() {
                               <Badge
                                 className="text-white font-medium"
                                 style={{
-                                  backgroundColor: valvula.status === "active" ? "#1C352D" : "#F5C9B0",
-                                  color: valvula.status === "active" ? "#F9F6F3" : "#1C352D",
+                                  backgroundColor: valvula.estado === "ABIERTO" ? "#1C352D" : "#F5C9B0",
+                                  color: valvula.estado === "ABIERTO" ? "#F9F6F3" : "#1C352D",
                                 }}
                               >
-                                {valvula.status === "active" ? "Activo" : "Inactivo"}
+                                {valvula.estado === "ABIERTO" ? "ABIERTO" : "CERRADO"}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -1286,7 +1429,7 @@ export function LotesValvulasManagement() {
               center={selectedFinca.mapCoordinates}
               zoom={selectedFinca.zoom}
               coordinates={viewingLoteData.coordinates}
-              onCoordinatesChange={() => {}} // Read-only
+              onCoordinatesChange={() => { }} // Read-only
               readonly={true}
               fincaBounds={selectedFinca.coordinates}
               isLote={true}

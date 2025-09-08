@@ -78,7 +78,7 @@ export function FincasManagement() {
   const filteredFincas = (Array.isArray(fincas) ? fincas : [])
     .filter(
       (finca) =>
-        finca.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        finca.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         finca.location?.toLowerCase().includes(searchTerm.toLowerCase()),
     )
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -190,7 +190,7 @@ export function FincasManagement() {
 
   const handleEdit = (finca: Finca) => {
     setEditingFinca(finca)
-    const fincaCoordinates = finca.coordinates || finca.coordinate || []
+    const fincaCoordinates = finca.coordinates || finca.coordinates || []
     setFormData({
       name: finca.name,
       location: finca.location,

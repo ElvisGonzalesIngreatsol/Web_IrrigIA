@@ -111,7 +111,7 @@ export function AppSidebar() {
     {
       title: "Gestión de Dispositivos",
       icon: PanelsLeftRightIcon,
-      href: "/gestion-dispositivos", // Asegúrate que la ruta sea exactamente esta
+      href: "/gestion-dispositivos", 
     },
     {
       title: "Gestión de Lotes y Válvulas",

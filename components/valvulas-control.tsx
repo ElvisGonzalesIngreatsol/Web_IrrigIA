@@ -199,7 +199,7 @@ export function ValvulasControl() {
                 </SelectItem>
                 {fincas.map((finca) => (
                   <SelectItem key={finca.id.toString()} value={finca.id.toString()} className="text-base py-3">
-                    {finca.name}
+                    {finca.nombre}
                   </SelectItem>
                 ))}
               </SelectContent>
