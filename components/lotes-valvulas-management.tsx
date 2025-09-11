@@ -65,6 +65,7 @@ export function LotesValvulasManagement() {
   const [loteFormData, setLoteFormData] = useState({
     nombre: "",
     fincaId: "",
+    area: "",
     hectareas: "",
     state: true,
     valvulaIds: [],
@@ -151,7 +152,7 @@ export function LotesValvulasManagement() {
       (valvula) =>
         valvula.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         filteredLotes
-          .find((l) => l.id === valvula.loteId.toString())
+          .find((l) => l.id.toString() === valvula.id.toString())
           ?.nombre?.toLowerCase()
           .includes(searchTerm.toLowerCase()),
     )
@@ -161,6 +162,42 @@ export function LotesValvulasManagement() {
   const startItem = (currentPage - 1) * itemsPerPage + 1
   const endItem = Math.min(currentPage * itemsPerPage, totalValvulas)
   const paginatedValvulas = filteredValvulas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  // Paginación para lotes
+  const totalLotes = filteredLotes.length
+  const totalPagesLotes = Math.ceil(totalLotes / itemsPerPage)
+  const startItemLotes = (currentPage - 1) * itemsPerPage + 1
+  const endItemLotes = Math.min(currentPage * itemsPerPage, totalLotes)
+  const paginatedLotes = filteredLotes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  // Función para actualizar todo el módulo (fincas, lotes, válvulas)
+  const handleActualizarModulo = async () => {
+    setLoadingFincas(true)
+    setLoadingLotes(true)
+    setFincasError(null)
+    setLotesError(null)
+    try {
+      const fincasResp = await apiService.getAllFincas()
+      if (fincasResp.success) setFincas(fincasResp.data.data || [])
+      else setFincasError(fincasResp.error || "Error al obtener fincas")
+
+      if (selectedFincaId) {
+        const lotesResp = await apiService.getLotes(selectedFincaId)
+        if (lotesResp.success) setLotes(lotesResp.data.data || [])
+        else setLotesError(lotesResp.error || "Error al obtener lotes")
+
+        const valvulasResp = await apiService.getValvulas({ fincaId: selectedFincaId })
+        if (valvulasResp.success) setValvulasFinca(valvulasResp.data.data || [])
+        else setValvulasFinca([])
+      }
+    } catch (err) {
+      setFincasError("Error al actualizar datos")
+      setLotesError("Error al actualizar datos")
+    } finally {
+      setLoadingFincas(false)
+      setLoadingLotes(false)
+    }
+  }
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
@@ -180,6 +217,7 @@ export function LotesValvulasManagement() {
     setLoteFormData({
       nombre: "",
       fincaId: "",
+      area: "",
       hectareas: "",
       state: true,
       valvulaIds: [],
@@ -205,6 +243,7 @@ export function LotesValvulasManagement() {
       const loteData = {
         nombre: loteFormData.nombre,
         fincaId: Number(selectedFincaId),
+        area: Number(loteFormData.area) || 0,
         hectareas: Number(loteFormData.hectareas) || 0,
         state: loteFormData.state,
         valvulaIds: loteFormData.valvulaIds,
@@ -251,7 +290,7 @@ export function LotesValvulasManagement() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const response = await apiService.deleteLote(lote.id)
+          const response = await apiService.deleteLote(lote.id.toString())
           if (response && response.success) {
             Swal.fire({
               title: "¡Eliminado!",
@@ -456,7 +495,7 @@ export function LotesValvulasManagement() {
     return { lat: centerLat, lng: centerLng }
   }
 
-  const viewingLoteData = viewingLote ? lotes.find((l) => l.id === viewingLote) : null
+  const viewingLoteData = viewingLote ? lotes.find((l) => l.id.toString() === viewingLote) : null
 
   useEffect(() => {
     const fetchFincas = async () => {
@@ -509,6 +548,7 @@ export function LotesValvulasManagement() {
     setLoteFormData({
       nombre: lote.nombre || "",
       fincaId: lote.fincaId || "",
+      area: lote.area?.toString() || "",
       hectareas: lote.hectareas?.toString() || "",
       state: typeof lote.state === "boolean" ? lote.state : true,
       valvulaIds: lote.valvulaIds || [],
@@ -535,16 +575,27 @@ export function LotesValvulasManagement() {
       {(user?.role === "ADMIN" || !user?.fincaId) && (
         <Card className="shadow-lg border-0" style={{ backgroundColor: "#F9F6F3" }}>
           <CardHeader
-            className="rounded-t-lg border px-6 py-6 rounded-xl shadow-sm"
+            className="rounded-t-lg border px-6 py-6 rounded-xl shadow-sm flex flex-row items-center justify-between"
             style={{ backgroundColor: "#F9F6F3", color: "#F9F6F3" }}
           >
-            <CardTitle className="flex items-center gap-2 text-[rgba(28,53,45,1)]">
-              <Layers className="h-5 w-5" />
-              Seleccionar Finca
-            </CardTitle>
-            <CardDescription className="text-[rgba(28,53,45,1)]" style={{ color: "#A6B28B" }}>
-              Elige una finca para gestionar sus lotes y válvulas
-            </CardDescription>
+            <div>
+              <CardTitle className="flex items-center gap-2 text-[rgba(28,53,45,1)]">
+                <Layers className="h-5 w-5" />
+                Seleccionar Finca
+              </CardTitle>
+              <CardDescription className="text-[rgba(28,53,45,1)]" style={{ color: "#A6B28B" }}>
+                Elige una finca para gestionar sus lotes y válvulas
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              className="ml-4 border-2"
+              style={{ borderColor: "#A6B28B", color: "#1C352D" }}
+              onClick={handleActualizarModulo}
+              disabled={loadingFincas || loadingLotes}
+            >
+              Actualizar
+            </Button>
           </CardHeader>
           <CardContent className="p-6">
             <Select value={selectedFincaId} onValueChange={setSelectedFincaId} disabled={loadingFincas}>
@@ -559,18 +610,6 @@ export function LotesValvulasManagement() {
                   }
                 />
               </SelectTrigger>
-              {/* <SelectContent>
-                {userFincas.map((finca) => (
-                  <SelectItem key={finca.id} value={finca.id.toString()}>
-                    {finca.name} - {finca.location}
-                  </SelectItem>
-                ))}
-                {!userFincas && fincas.length === 0 && (
-                  <SelectItem value="no-fincas" disabled>
-                    No hay fincas disponibles
-                  </SelectItem>
-                )}
-              </SelectContent> */}
               <SelectContent>
                 {loadingFincas ? (
                   <SelectItem value="loading" disabled>
@@ -629,7 +668,6 @@ export function LotesValvulasManagement() {
 
           {/* Tab de Lotes */}
           <TabsContent value="lotes" className="space-y-6 mt-6">
-            {/* Mostrar loading o error de lotes */}
             {loadingLotes && (
               <div className="text-center text-lg text-gray-500 py-8">Cargando lotes...</div>
             )}
@@ -638,12 +676,9 @@ export function LotesValvulasManagement() {
             )}
             {!loadingLotes && !lotesError && (
               <>
-                <div
-                  className="flex justify-between items-center rounded-xl p-6 shadow-lg border-0"
-                  style={{ backgroundColor: "#F9F6F3" }}
-                >
+                <div className="flex justify-between items-center rounded-xl p-6 shadow-lg border-0" style={{ backgroundColor: "#F9F6F3" }}>
                   <h2 className="text-2xl font-semibold" style={{ color: "#1C352D" }}>
-                    Lotes de {selectedFinca?.name}
+                    Lotes de {selectedFinca?.nombre}
                   </h2>
                   <Dialog
                     open={isLoteDialogOpen}
@@ -743,115 +778,112 @@ export function LotesValvulasManagement() {
                   </Dialog>
                 </div>
 
-                {/* Lista de Lotes */}
-                <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-                  {filteredLotes.map((lote) => {
-                    const loteValvulas = valvulas.filter((v) => v.loteId === lote.id)
-                    return (
-                      <Card
-                        key={lote.id}
-                        className="shadow-lg border-0 backdrop-blur-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-                        style={{ backgroundColor: "#F9F6F3" }}
-                      >
-                        <CardHeader className="rounded-t-lg pb-3 flex items-center" style={{ backgroundColor: "#1C352D", color: "#F9F6F3" }}>
-                          <Layers className="h-5 w-5 mr-2" />
-                          <span className="font-bold text-lg" style={{ color: "#F9F6F3" }}>
-                            {lote.nombre}
-                          </span>
-                        </CardHeader>
-                        <CardContent className="p-4 sm:p-6">
-                          <div className="space-y-3 sm:space-y-4">
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span style={{ color: "#1C352D" }}>Área:</span>
-                              <span className="font-semibold" style={{ color: "#1C352D" }}>
-                                {lote.hectareas.toFixed(2)} Ha
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span style={{ color: "#1C352D" }}>Válvulas:</span>
-                              <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
-                                {loteValvulas.length}
-                              </Badge>
-                            </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span style={{ color: "#1C352D" }}>Puntos:</span>
-                              <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
-                                {lote.coordinates.length}
-                              </Badge>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 border-2 transition-colors bg-transparent text-xs sm:text-sm h-8 sm:h-9"
-                                style={{
-                                  borderColor: "#A6B28B",
-                                  color: "#1C352D",
-                                  backgroundColor: "transparent",
-                                }}
-                                onClick={() => setViewingLote(lote.id)}
-                              >
-                                <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-                                <span>Ver</span>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 border-2 transition-colors bg-transparent text-xs sm:text-sm h-8 sm:h-9"
-                                style={{
-                                  borderColor: "#A6B28B",
-                                  color: "#1C352D",
-                                  backgroundColor: "transparent",
-                                }}
-                                onClick={() => handleEditLote(lote)}
-                              >
-                                <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-                                <span>Editar</span>
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 border-2 transition-colors bg-transparent text-xs sm:text-sm h-8 sm:h-9"
-                                style={{
-                                  borderColor: "#F5C9B0",
-                                  color: "#1C352D",
-                                  backgroundColor: "transparent",
-                                }}
-                                onClick={() => handleDeleteLote(lote)}
-                              >
-                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-                                <span>Eliminar</span>
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-
-                {filteredLotes.length === 0 && (
-                  <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-                    <CardContent className="text-center py-12">
-                      <Layers className="h-16 w-16 text-gray-300 mx-auto mb-6" />
-                      <h3 className="text-xl font-semibold text-gray-700 mb-3">No hay lotes</h3>
-                      <p className="text-gray-500 mb-6">Crea el primer lote para esta finca</p>
-                      <Button
-                        onClick={() => setIsLoteDialogOpen(true)}
-                        //className="bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 text-white shadow-lg bg-[rgba(28,53,45,1)]"
-                        className="shadow-lg transition-all duration-300 transform hover:scale-105"
-                          style={{
-                            backgroundColor: "#1C352D",
-                            color: "#F9F6F3",
-                            borderColor: "#A6B28B",
-                          }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Crear Primer Lote
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Tabla de Lotes con paginación */}
+                <Card className="shadow-lg border-0 bg-white/95 backdrop-blur-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg sm:text-xl font-semibold text-gray-800">
+                      Lotes Registrados ({totalLotes})
+                    </CardTitle>
+                    <CardDescription className="text-sm text-gray-600">
+                      Gestiona los lotes de la finca seleccionada
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow style={{ borderColor: "#A6B28B" }}>
+                            <TableHead style={{ color: "#1C352D" }}>Nombre</TableHead>
+                            <TableHead style={{ color: "#1C352D" }}>Área (Ha)</TableHead>
+                            <TableHead style={{ color: "#1C352D" }}>Válvulas</TableHead>
+                            <TableHead style={{ color: "#1C352D" }}>Puntos</TableHead>
+                            <TableHead className="text-center" style={{ color: "#1C352D" }}>Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedLotes.map((lote) => {
+                            const loteValvulas = valvulasFinca.filter((v) => v.loteId?.toString() === lote.id?.toString())
+                            return (
+                              <TableRow key={lote.id} style={{ borderColor: "#A6B28B" }}>
+                                <TableCell>{lote.nombre}</TableCell>
+                                <TableCell>{lote.hectareas?.toFixed(2)}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
+                                    {loteValvulas.length}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
+                                    {lote.coordinates?.length || 0}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center justify-center gap-1 xl:gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="border-2 transition-colors bg-transparent text-xs xl:text-sm h-8 px-2 xl:px-3"
+                                      style={{
+                                        borderColor: "#A6B28B",
+                                        color: "#1C352D",
+                                        backgroundColor: "transparent",
+                                      }}
+                                      onClick={() => setViewingLote(lote.id.toString())}
+                                    >
+                                      <Eye className="h-3 w-3 xl:mr-1 flex-shrink-0" />
+                                      <span className="hidden xl:inline">Ver</span>
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="border-2 transition-colors bg-transparent text-xs xl:text-sm h-8 px-2 xl:px-3"
+                                      style={{
+                                        borderColor: "#A6B28B",
+                                        color: "#1C352D",
+                                        backgroundColor: "transparent",
+                                      }}
+                                      onClick={() => handleEditLote(lote)}
+                                    >
+                                      <Edit className="h-3 w-3 xl:mr-1 flex-shrink-0" />
+                                      <span className="hidden xl:inline">Editar</span>
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="border-2 transition-colors bg-transparent text-xs xl:text-sm h-8 px-2 xl:px-3"
+                                      style={{
+                                        borderColor: "#F5C9B0",
+                                        color: "#1C352D",
+                                        backgroundColor: "transparent",
+                                      }}
+                                      onClick={() => handleDeleteLote(lote)}
+                                    >
+                                      <Trash2 className="h-3 w-3 xl:mr-1 flex-shrink-0" />
+                                      <span className="hidden xl:inline">Eliminar</span>
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="px-4 sm:px-6 py-4 border-t" style={{ borderColor: "#A6B28B" }}>
+                      <TablePagination
+                        currentPage={currentPage}
+                        totalPages={totalPagesLotes}
+                        totalItems={totalLotes}
+                        itemsPerPage={itemsPerPage}
+                        startItem={startItemLotes}
+                        endItem={endItemLotes}
+                        onPageChange={handlePageChange}
+                        onItemsPerPageChange={handleItemsPerPageChange}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+                {/* Fin tabla lotes */}
               </>
             )}
           </TabsContent>
@@ -965,7 +997,7 @@ export function LotesValvulasManagement() {
                               >
                                 <SelectTrigger className="border-2 h-12" style={{ borderColor: "#A6B28B" }}>
                                   <SelectValue placeholder="Seleccionar lote">
-                                    {filteredLotes.find((l) => l.id === valvulaFormData.loteId.toString())?.nombre}
+                                    {filteredLotes.find((l) => l.id.toString() === valvulaFormData.loteId.toString())?.nombre}
                                   </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1203,7 +1235,7 @@ export function LotesValvulasManagement() {
                 <div className="block sm:hidden">
                   <div className="space-y-3 p-4">
                     {paginatedValvulas.map((valvula) => {
-                      const lote = filteredLotes.find((l) => l.id === valvula.loteId)
+                      const lote = filteredLotes.find((l) => l.id.toString() === valvula.id.toString())
                       return (
                         <Card key={valvula.id} className="p-4 border border-gray-200">
                           <div className="space-y-3">
@@ -1217,11 +1249,11 @@ export function LotesValvulasManagement() {
                               <Badge
                                 className="text-xs font-medium ml-2 flex-shrink-0"
                                 style={{
-                                  backgroundColor: valvula.estado === "ABIERTO" ? "#1C352D" : "#F5C9B0",
-                                  color: valvula.estado === "ABIERTO" ? "#F9F6F3" : "#1C352D",
+                                  backgroundColor: valvula.estado === "ABIERTA" ? "#1C352D" : "#F5C9B0",
+                                  color: valvula.estado === "CERRADA" ? "#F9F6F3" : "#1C352D",
                                 }}
                               >
-                                {valvula.estado === "ABIERTO" ? "ABIERTO" : "CERRADO"}
+                                {valvula.estado === "ABIERTA" ? "ABIERTA" : "CERRADA"}
                               </Badge>
                             </div>
 
@@ -1229,7 +1261,7 @@ export function LotesValvulasManagement() {
                               <div>
                                 <span className="text-gray-500">Flujo:</span>
                                 <div className="font-medium" style={{ color: "#1C352D" }}>
-                                  {valvula.flowRate?.toFixed(1) || "0.0"} L/min
+                                  {valvula.caudal?.toFixed(1) || "0.0"} L/min
                                 </div>
                               </div>
                               <div>
@@ -1314,7 +1346,7 @@ export function LotesValvulasManagement() {
                     </TableHeader>
                     <TableBody>
                       {paginatedValvulas.map((valvula) => {
-                        const lote = filteredLotes.find((l) => l.id === valvula.loteId)
+                        const lote = filteredLotes.find((l) => l.id.toString() === valvula.id.toString())
                         return (
                           <TableRow key={valvula.id} style={{ borderColor: "#A6B28B" }}>
                             <TableCell>
@@ -1332,7 +1364,7 @@ export function LotesValvulasManagement() {
                             </TableCell>
                             <TableCell>
                               <span className="font-mono text-sm" style={{ color: "#1C352D" }}>
-                                {valvula.flowRate?.toFixed(1) || "0.0"} L/min
+                                {valvula.caudal?.toFixed(1) || "0.0"} L/min
                               </span>
                             </TableCell>
                             <TableCell>
@@ -1344,11 +1376,11 @@ export function LotesValvulasManagement() {
                               <Badge
                                 className="text-white font-medium"
                                 style={{
-                                  backgroundColor: valvula.estado === "ABIERTO" ? "#1C352D" : "#F5C9B0",
-                                  color: valvula.estado === "ABIERTO" ? "#F9F6F3" : "#1C352D",
+                                  backgroundColor: valvula.estado === "ABIERTA" ? "#1C352D" : "#F5C9B0",
+                                  color: valvula.estado === "ABIERTA" ? "#F9F6F3" : "#1C352D",
                                 }}
                               >
-                                {valvula.estado === "ABIERTO" ? "ABIERTO" : "CERRADO"}
+                                {valvula.estado === "ABIERTA" ? "CERRADA" : "Inactivo"}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -1419,7 +1451,7 @@ export function LotesValvulasManagement() {
       <Dialog open={!!viewingLote} onOpenChange={() => setViewingLote(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-800">{viewingLoteData?.name}</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-gray-800">{viewingLoteData?.nombre}</DialogTitle>
             <DialogDescription className="text-gray-600">
               {viewingLoteData?.cultivo} - Área: {viewingLoteData?.hectareas.toFixed(2)} Ha
             </DialogDescription>

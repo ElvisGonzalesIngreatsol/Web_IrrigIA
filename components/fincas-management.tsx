@@ -38,9 +38,10 @@ export function FincasManagement() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(6)
   const [submitting, setSubmitting] = useState(false)
+  // const [isRefreshing, setIsRefreshing] = useState(false)
 
   const [formData, setFormData] = useState({
-    name: "",
+    nombre: "",
     location: "",
     area: 0,
     coordinates: [] as LoteCoordinate[],
@@ -78,7 +79,7 @@ export function FincasManagement() {
   const filteredFincas = (Array.isArray(fincas) ? fincas : [])
     .filter(
       (finca) =>
-        finca.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        finca.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         finca.location?.toLowerCase().includes(searchTerm.toLowerCase()),
     )
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -104,7 +105,7 @@ export function FincasManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.name || !formData.location || formData.coordinates?.length < 3) {
+    if (!formData.nombre || !formData.location || formData.coordinates?.length < 3) {
       addNotification({
         type: "error",
         title: "Error de validación",
@@ -128,7 +129,7 @@ export function FincasManagement() {
         addNotification({
           type: "success",
           title: "Finca actualizada",
-          message: `${formData.name} ha sido actualizada correctamente`,
+          message: `${formData.nombre} ha sido actualizada correctamente`,
         })
       } else {
         console.log("[v0] Creating new finca")
@@ -137,7 +138,7 @@ export function FincasManagement() {
         addNotification({
           type: "success",
           title: "Finca creada",
-          message: `${formData.name} ha sido creada correctamente`,
+          message: `${formData.nombre} ha sido creada correctamente`,
         })
       }
 
@@ -177,7 +178,7 @@ export function FincasManagement() {
 
   const resetForm = () => {
     setFormData({
-      name: "",
+      nombre: "",
       location: "",
       area: 0,
       coordinates: [],
@@ -192,7 +193,7 @@ export function FincasManagement() {
     setEditingFinca(finca)
     const fincaCoordinates = finca.coordinates || finca.coordinates || []
     setFormData({
-      name: finca.name,
+      nombre: finca.nombre,
       location: finca.location,
       area: finca.area,
       latitude: finca.latitude,
@@ -208,7 +209,7 @@ export function FincasManagement() {
     if (finca) {
       const result = await Swal.fire({
         title: "¿Estás seguro?",
-        text: `¿Estás seguro de eliminar la finca ${finca.name}? Esto también eliminará todos sus lotes y válvulas.`,
+        text: `¿Estás seguro de eliminar la finca ${finca.nombre}? Esto también eliminará todos sus lotes y válvulas.`,
         icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#1C352D",
@@ -230,7 +231,7 @@ export function FincasManagement() {
           addNotification({
             type: "warning",
             title: "Finca eliminada",
-            message: `${finca.name} ha sido eliminada del sistema`,
+            message: `${finca.nombre} ha sido eliminada del sistema`,
           })
           await Swal.fire({
             title: "¡Eliminado!",
@@ -319,7 +320,11 @@ export function FincasManagement() {
       </div>
     )
   }
-
+  // const handleRefresh = async () => {
+  //   setIsRefreshing(true)
+  //   await fetchData()
+  //   showSuccess("Actualizado", "Estado de las fincas actualizado")
+  // }
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-2 border-b border-gray-100">
@@ -333,6 +338,16 @@ export function FincasManagement() {
               <Plus className="h-4 w-4 mr-2" />
               Nueva Finca
             </Button>
+            {/* <Button
+              className="text-slate-700 bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-slate-300 shadow-sm transition-all duration-200"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              variant="outline"
+              size="lg"
+            >
+              <RefreshCw className={`h-5 w-5 mr-3 ${isRefreshing ? "animate-spin" : ""}`} />
+              Actualizar
+            </Button> */}
           </DialogTrigger>
           <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto m-4">
             <DialogHeader>
@@ -347,8 +362,8 @@ export function FincasManagement() {
                   <Label htmlFor="name">Nombre de la Finca *</Label>
                   <Input
                     id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    value={formData.nombre}
+                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                     placeholder="Ej: Finca San José"
                     required
                   />
@@ -514,7 +529,7 @@ export function FincasManagement() {
                   <CardHeader className="pb-4">
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
-                        <CardTitle className="text-base sm:text-lg truncate">{finca.name}</CardTitle>
+                        <CardTitle className="text-base sm:text-lg truncate">{finca.nombre}</CardTitle>
                         <CardDescription className="flex items-center gap-1 mt-1">
                           <MapPin className="h-3 w-3 flex-shrink-0" />
                           <span className="truncate">{finca.location}</span>
@@ -593,7 +608,7 @@ export function FincasManagement() {
                   <Card key={finca.id} className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-medium truncate">{finca.name}</h3>
+                        <h3 className="font-medium truncate">{finca.nombre}</h3>
                         <p className="text-sm text-muted-foreground flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
                           <span className="truncate">{finca.location}</span>
@@ -666,7 +681,7 @@ export function FincasManagement() {
                         <TableRow key={finca.id}>
                           <TableCell>
                             <div>
-                              <div className="font-medium">{finca.name}</div>
+                              <div className="font-medium">{finca.nombre}</div>
                               <div className="text-sm text-muted-foreground flex items-center gap-1">
                                 <MapPin className="h-3 w-3" />
                                 {finca.location}
@@ -740,7 +755,7 @@ export function FincasManagement() {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Vista de Finca - {viewingFinca?.name}</DialogTitle>
+            <DialogTitle>Vista de Finca - {viewingFinca?.nombre}</DialogTitle>
             <DialogDescription>Visualización de la finca con sus lotes y límites definidos</DialogDescription>
           </DialogHeader>
           {viewingFinca && (

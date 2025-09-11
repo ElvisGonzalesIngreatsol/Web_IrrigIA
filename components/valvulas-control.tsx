@@ -1,26 +1,31 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useNotifications } from "./notification-system"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
-import { Droplets, Activity, AlertTriangle, Clock, Gauge, RefreshCw, Play, Square, Loader2 } from "lucide-react"
+import { Droplets, Activity, AlertTriangle, Clock, Gauge, RefreshCw, Play, Square, Loader2, Power } from "lucide-react"
 import { apiService } from "@/lib/api"
-import type { Finca, Valvula } from "@/types"
+import type { Finca, Valvula, Lote } from "@/types"
+import { io, Socket } from "socket.io-client"
 
 export function ValvulasControl() {
   const { showSuccess, showError, showWarning } = useNotifications()
   const [fincas, setFincas] = useState<Finca[]>([])
   const [valvulas, setValvulas] = useState<Valvula[]>([])
+  const [lotes, setLotes] = useState<Lote[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedFincaId, setSelectedFincaId] = useState<string>("all")
   const [selectedLoteId, setSelectedLoteId] = useState<string>("all")
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [loadingValvulas, setLoadingValvulas] = useState<Set<number>>(new Set())
+  const [loadingLotes, setLoadingLotes] = useState(false)
+  const socketRef = useRef<Socket | null>(null)
+  const [socketConnected, setSocketConnected] = useState(false)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -53,8 +58,41 @@ export function ValvulasControl() {
     fetchData()
   }, [fetchData])
 
+  // Cargar lotes cuando se selecciona una finca
+  useEffect(() => {
+    if (selectedFincaId && selectedFincaId !== "all") {
+      setLoadingLotes(true)
+      apiService.request(`/api/lotes/all/${selectedFincaId}`)
+        .then((resp) => {
+          setLotes(resp?.data?.data || [])
+        })
+        .finally(() => setLoadingLotes(false))
+    } else {
+      setLotes([])
+      setSelectedLoteId("all")
+    }
+  }, [selectedFincaId])
+
+  // Cargar válvulas del lote seleccionado
+  useEffect(() => {
+    if (selectedLoteId && selectedLoteId !== "all") {
+      setIsLoading(true)
+      apiService.request(`/api/valvulas/lote/${selectedLoteId}`)
+        .then((resp) => {
+          setValvulas(resp?.data?.data || [])
+        })
+        .finally(() => setIsLoading(false))
+    } else if (selectedFincaId !== "all") {
+      // Si no hay lote seleccionado, mostrar todas las válvulas de la finca
+      fetchData()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLoteId])
+
+  // Filtro de válvulas por finca y lote
   const filteredValvulas = valvulas.filter((valvula) => {
     if (selectedFincaId !== "all" && valvula.fincaId.toString() !== selectedFincaId) return false
+    if (selectedLoteId !== "all" && valvula.loteId?.toString() !== selectedLoteId) return false
     return true
   })
 
@@ -63,7 +101,67 @@ export function ValvulasControl() {
     }
   }, [selectedFincaId, selectedLoteId])
 
-  const handleToggleValvula = async (valvulaId: number) => {
+  useEffect(() => {
+    const token = localStorage.getItem("token") // O usa tu método de auth
+    const socket = io("/api/ws", {
+      path: "/api/ws/socket.io",
+      transports: ["websocket"],
+      auth: { token },
+      query: { token },
+      withCredentials: true,
+    })
+    socketRef.current = socket
+
+    socket.on("connect", () => setSocketConnected(true))
+    socket.on("disconnect", () => setSocketConnected(false))
+
+    // Escucha eventos de actualización de válvula
+    socket.on("device-data", (data: any) => {
+      setValvulas((prev) =>
+        prev.map((v) => (v.id === data.id ? { ...v, ...data } : v))
+      )
+    })
+
+    // Opcional: notificaciones desde el backend
+    socket.on("notification", (notif: any) => {
+      if (notif.type === "success") showSuccess(notif.title, notif.message)
+      else if (notif.type === "error") showError(notif.title, notif.message)
+      else if (notif.type === "warning") showWarning(notif.title, notif.message)
+    })
+
+    return () => {
+      socket.disconnect()
+    }
+  }, [])
+
+  // NUEVO: Suscribirse a cada válvula mostrada
+  useEffect(() => {
+    if (!socketRef.current || !socketConnected) return
+    filteredValvulas.forEach((valvula) => {
+      socketRef.current?.emit("subscribeToDevice", { valvulaId: valvula.id })
+    })
+    // Limpieza: desuscribirse al desmontar o cambiar válvulas
+    return () => {
+      filteredValvulas.forEach((valvula) => {
+        socketRef.current?.emit("unsubscribeFromDevice", { valvulaId: valvula.id })
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socketConnected, filteredValvulas.map((v) => v.id).join(",")])
+
+  // Encender/apagar todas las válvulas del lote seleccionado
+  const handleToggleAllValvulasLote = async (turnOn: boolean) => {
+    if (!selectedLoteId || selectedLoteId === "all") return
+    const valvulasLote = filteredValvulas.filter((v) => v.loteId?.toString() === selectedLoteId)
+    for (const valvula of valvulasLote) {
+      if (valvula.isActive !== false) {
+        handleToggleValvula(valvula.id, turnOn)
+      }
+    }
+  }
+
+  // Modifica handleToggleValvula para aceptar el estado deseado (opcional para el control masivo)
+  const handleToggleValvula = async (valvulaId: number, forceEstado?: boolean) => {
     const valvula = valvulas.find((v) => v.id === valvulaId)
     if (!valvula) return
 
@@ -74,34 +172,34 @@ export function ValvulasControl() {
 
     setLoadingValvulas((prev) => new Set(prev).add(valvulaId))
 
-    const newEstado = valvula.estado === "ABIERTA" ? "CERRADA" : "ABIERTA"
-    setValvulas((prevValvulas) => prevValvulas.map((v) => (v.id === valvulaId ? { ...v, estado: newEstado } : v)))
+    let newEstado: "ABIERTA" | "CERRADA"
+    if (typeof forceEstado === "boolean") {
+      newEstado = forceEstado ? "ABIERTA" : "CERRADA"
+    } else {
+      newEstado = valvula.estado === "ABIERTA" ? "CERRADA" : "ABIERTA"
+    }
 
-    try {
-      const action = newEstado
-      const response = await apiService.controlValvula(valvulaId, action)
+    // Enviar comando por WebSocket
+    if (socketRef.current && socketConnected) {
+      socketRef.current.emit("control-valvula", {
+        valvulaId,
+        action: newEstado,
+      })
+    }
 
-      if (response.success) {
-        const message = newEstado === "ABIERTA" ? "activada" : "desactivada"
-        showSuccess(`Válvula ${message}`, `${valvula.nombre} ha sido ${message} correctamente`)
-      } else {
-        setValvulas((prevValvulas) =>
-          prevValvulas.map((v) => (v.id === valvulaId ? { ...v, estado: valvula.estado } : v)),
-        )
-        showError("Error", response.error || "No se pudo cambiar el estado de la válvula")
-      }
-    } catch (error) {
-      setValvulas((prevValvulas) =>
-        prevValvulas.map((v) => (v.id === valvulaId ? { ...v, estado: valvula.estado } : v)),
-      )
-      showError("Error", "Ocurrió un error de conexión")
-    } finally {
+    // Actualización optimista
+    setValvulas((prevValvulas) =>
+      prevValvulas.map((v) => (v.id === valvulaId ? { ...v, estado: newEstado } : v)),
+    )
+
+    // Espera confirmación por WebSocket (device-data) o timeout
+    setTimeout(() => {
       setLoadingValvulas((prev) => {
         const newSet = new Set(prev)
         newSet.delete(valvulaId)
         return newSet
       })
-    }
+    }, 2000)
   }
 
   const handleRefresh = async () => {
@@ -215,16 +313,40 @@ export function ValvulasControl() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <Select value={selectedLoteId} onValueChange={setSelectedLoteId}>
+            <Select value={selectedLoteId} onValueChange={setSelectedLoteId} disabled={loadingLotes || lotes.length === 0}>
               <SelectTrigger className="h-12 text-base border-2 border-slate-200 focus:border-blue-400">
-                <SelectValue placeholder="Todos los lotes" />
+                <SelectValue placeholder={loadingLotes ? "Cargando lotes..." : "Todos los lotes"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-base py-3">
                   Todos los lotes
                 </SelectItem>
+                {lotes.map((lote) => (
+                  <SelectItem key={lote.id.toString()} value={lote.id.toString()}>
+                    {lote.nombre}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {/* Botones para prender/apagar todas las válvulas del lote */}
+            {/* {selectedLoteId !== "all" && lotes.length > 0 && (
+              <div className="flex gap-2 mt-4">
+                <Button
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => handleToggleAllValvulasLote(true)}
+                  disabled={filteredValvulas.length === 0}
+                >
+                  Prender válvulas del lote {lotes.find((l) => l.id.toString() === selectedLoteId)?.nombre}
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={() => handleToggleAllValvulasLote(false)}
+                  disabled={filteredValvulas.length === 0}
+                >
+                  Apagar válvulas del lote {lotes.find((l) => l.id.toString() === selectedLoteId)?.nombre}
+                </Button>
+              </div>
+            )} */}
           </CardContent>
         </Card>
 
@@ -248,7 +370,7 @@ export function ValvulasControl() {
               {selectedFincaId !== "all" && (
                 <div className="flex justify-between items-center py-1 text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
                   <span>Finca seleccionada:</span>
-                  <span className="font-semibold">{fincas.find((f) => f.id === selectedFincaId)?.name}</span>
+                  <span className="font-semibold">{fincas.find((f) => f.id.toString() === selectedFincaId)?.nombre}</span>
                 </div>
               )}
             </div>
@@ -313,6 +435,20 @@ export function ValvulasControl() {
         </Card>
       </div>
 
+      {/* NUEVO: Botón para encender todas las válvulas del lote */}
+      {selectedLoteId !== "all" && lotes.length > 0 && (
+        <div className="flex justify-end mt-2 mb-4">
+          <Button
+            className="flex items-center gap-2 bg-green-700 hover:bg-green-800 text-white shadow-lg border-2 border-green-800 px-6 py-3 rounded-lg text-lg font-semibold transition-all duration-200"
+            onClick={() => handleToggleAllValvulasLote(true)}
+            disabled={filteredValvulas.length === 0}
+          >
+            <Power className="h-5 w-5" />
+            Encender el {lotes.find((l) => l.id.toString() === selectedLoteId)?.nombre}
+          </Button>
+        </div>
+      )}
+
       <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredValvulas.map((valvula) => {
           const finca = fincas.find((f) => f.id === valvula.fincaId)
@@ -330,7 +466,7 @@ export function ValvulasControl() {
                     <div className="flex-1">
                       <CardTitle className="text-xl font-bold text-slate-800 mb-1">{valvula.nombre}</CardTitle>
                       <CardDescription className="text-sm text-slate-600">
-                        {finca?.name ? `${finca.name} - Bananera San José` : "Sector Norte - Bananera San José"}
+                        {finca?.nombre ? `${finca.nombre} - Bananera San José` : "Sector Norte - Bananera San José"}
                       </CardDescription>
                     </div>
                   </div>
@@ -359,12 +495,12 @@ export function ValvulasControl() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between py-2">
+                  {/* <div className="flex items-center justify-between py-2">
                     <span className="text-sm font-medium text-slate-700">Tipo:</span>
                     <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-300">
                       {getValvulaTypeName(valvula.tipo)}
                     </Badge>
-                  </div>
+                  </div> */}
 
                   <div className="flex items-center justify-between py-2">
                     <span className="text-sm font-medium text-slate-700">Estado:</span>

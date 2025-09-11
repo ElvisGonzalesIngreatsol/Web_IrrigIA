@@ -43,7 +43,7 @@ export interface MapCoordinate extends LoteCoordinate {
 
 export interface Finca {
   id: number
-  name: string
+  nombre: string
   location?: string
   descripcion?: string
   area: number

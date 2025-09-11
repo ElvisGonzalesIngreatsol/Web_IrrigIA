@@ -19,7 +19,7 @@ interface Device {
     deviceEui: string
     nombre: string
     descripcion?: string
-    lat?: float
+    lat?: Float16Array
     lng?: Float16Array
     isActive: boolean
     fincaid: number
