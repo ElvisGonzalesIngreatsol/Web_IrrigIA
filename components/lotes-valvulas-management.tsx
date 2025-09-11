@@ -77,18 +77,19 @@ export function LotesValvulasManagement() {
   const [editingValvula, setEditingValvula] = useState<string | null>(null)
   const [valvulaFormData, setValvulaFormData] = useState({
     nombre: "",
-    numero: 0, // NUEVO: campo para el número de la válvula (no visible)
+    numero: 0,
     loteId: "",
-    tipo: "aspersion" as "aspersion" | "goteo" | "microaspersion",
+    //tipo: "aspersion" as "aspersion" | "goteo" | "microaspersion",
     caudal: "",
     presion: "",
     descripcion: "",
-    deviceId: "",
+    deviceId: "", // <-- Cambia a string para el Select
     coordinates: { lat: 0, lng: 0 },
     isActive: true,
     needsMaintenance: false,
     maintenanceDate: "",
     maintenanceNotes: "",
+    lote: "",
   })
 
   // NUEVO: Cargar lotes y válvulas de la finca seleccionada
@@ -222,6 +223,7 @@ export function LotesValvulasManagement() {
       state: true,
       valvulaIds: [],
       coordinates: [],
+      Lote: "",
     })
     setEditingLote(null)
   }
@@ -325,16 +327,17 @@ export function LotesValvulasManagement() {
       nombre: "",
       numero: 0,
       loteId: "",
-      tipo: "aspersion",
+      //tipo: "aspersion",
       caudal: "",
       presion: "",
       descripcion: "",
-      deviceId: "",
+      deviceId: "", // <-- string vacío
       coordinates: { lat: 0, lng: 0 },
       isActive: true,
       needsMaintenance: false,
       maintenanceDate: "",
       maintenanceNotes: "",
+      lote: "",
     })
     setEditingValvula(null)
   }
@@ -369,18 +372,19 @@ export function LotesValvulasManagement() {
       const valvulaData = {
         nombre: valvulaFormData.nombre,
         numero: valvulaFormData.numero,
-        loteId: valvulaFormData.loteId,
-        tipo: valvulaFormData.tipo,
+        loteId: valvulaFormData.loteId ? parseInt(valvulaFormData.loteId) : null, // <-- Asegura que sea entero
+        //tipo: valvulaFormData.tipo,
         caudal: valvulaFormData.caudal ? Number.parseFloat(valvulaFormData.caudal) : null,
         presion: valvulaFormData.presion ? Number.parseFloat(valvulaFormData.presion) : null,
         descripcion: valvulaFormData.descripcion,
-        deviceId: valvulaFormData.deviceId,
+        deviceId: valvulaFormData.deviceId ? parseInt(valvulaFormData.deviceId) : null,
         coordinates: valvulaFormData.coordinates,
         isActive: valvulaFormData.isActive,
         needsMaintenance: valvulaFormData.needsMaintenance,
         maintenanceDate: valvulaFormData.maintenanceDate || null,
         maintenanceNotes: valvulaFormData.maintenanceNotes || null,
         fincaId: selectedFincaId,
+        lote: valvulaFormData.lote,
       }
 
       let response
@@ -413,17 +417,18 @@ export function LotesValvulasManagement() {
     setValvulaFormData({
       nombre: valvula.nombre || "",
       numero: typeof valvula.numero === "number" ? valvula.numero : 0,
-      loteId: valvula.loteId || "",
-      tipo: valvula.tipo || "aspersion",
+      loteId: valvula.loteId ? valvula.loteId.toString() : "", // <-- Siempre string
+      //tipo: valvula.tipo || "aspersion",
       caudal: valvula.caudal?.toString() || "",
       presion: valvula.presion?.toString() || "",
       descripcion: valvula.descripcion || "",
-      deviceId: valvula.deviceId || "",
+      deviceId: valvula.deviceId ? valvula.deviceId.toString() : "",
       coordinates: valvula.coordinates || { lat: 0, lng: 0 },
       isActive: valvula.isActive ?? valvula.status === "active",
       needsMaintenance: valvula.needsMaintenance || false,
       maintenanceDate: valvula.maintenanceDate || "",
       maintenanceNotes: valvula.maintenanceNotes || "",
+      lote: valvula.lote || "",
     })
     setEditingValvula(valvula.id)
     setIsValvulaDialogOpen(true)
@@ -876,7 +881,7 @@ export function LotesValvulasManagement() {
                         totalItems={totalLotes}
                         itemsPerPage={itemsPerPage}
                         startItem={startItemLotes}
-                        endItem={endItemLotes}
+                        endItemLotes={endItemLotes}
                         onPageChange={handlePageChange}
                         onItemsPerPageChange={handleItemsPerPageChange}
                       />
@@ -1019,7 +1024,7 @@ export function LotesValvulasManagement() {
                               >
                                 <SelectTrigger className="border-2 h-12" style={{ borderColor: "#A6B28B" }}>
                                   <SelectValue placeholder="Seleccionar dispositivo">
-                                    {devices.find((d) => d.id === valvulaFormData.deviceId.toString())?.nombre}
+                                    {devices.find((d) => d.id.toString() === valvulaFormData.deviceId)?.nombre}
                                   </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1258,7 +1263,7 @@ export function LotesValvulasManagement() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 text-xs">
-                              <div>
+                              {/* <div>
                                 <span className="text-gray-500">Flujo:</span>
                                 <div className="font-medium" style={{ color: "#1C352D" }}>
                                   {valvula.caudal?.toFixed(1) || "0.0"} L/min
@@ -1269,7 +1274,7 @@ export function LotesValvulasManagement() {
                                 <div className="font-medium" style={{ color: "#1C352D" }}>
                                   {valvula.presion?.toFixed(1) || "0.0"} bar
                                 </div>
-                              </div>
+                              </div> */}
                             </div>
 
                             <div className="text-xs">
@@ -1327,12 +1332,12 @@ export function LotesValvulasManagement() {
                         <TableHead className="font-semibold" style={{ color: "#1C352D" }}>
                           Lote
                         </TableHead>
-                        <TableHead className="font-semibold" style={{ color: "#1C352D" }}>
+                        {/* <TableHead className="font-semibold" style={{ color: "#1C352D" }}>
                           Flujo
                         </TableHead>
                         <TableHead className="font-semibold" style={{ color: "#1C352D" }}>
                           Presión
-                        </TableHead>
+                        </TableHead> */}
                         <TableHead className="font-semibold" style={{ color: "#1C352D" }}>
                           Estado
                         </TableHead>
@@ -1359,10 +1364,10 @@ export function LotesValvulasManagement() {
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
-                                {lote?.nombre || "Sin asignar"}
+                                {valvula.lote || "Sin asignar"}
                               </Badge>
                             </TableCell>
-                            <TableCell>
+                            {/* <TableCell>
                               <span className="font-mono text-sm" style={{ color: "#1C352D" }}>
                                 {valvula.caudal?.toFixed(1) || "0.0"} L/min
                               </span>
@@ -1371,7 +1376,7 @@ export function LotesValvulasManagement() {
                               <span className="font-mono text-sm" style={{ color: "#1C352D" }}>
                                 {valvula.presion?.toFixed(1) || "0.0"} bar
                               </span>
-                            </TableCell>
+                            </TableCell> */}
                             <TableCell>
                               <Badge
                                 className="text-white font-medium"
@@ -1380,7 +1385,7 @@ export function LotesValvulasManagement() {
                                   color: valvula.estado === "ABIERTA" ? "#F9F6F3" : "#1C352D",
                                 }}
                               >
-                                {valvula.estado === "ABIERTA" ? "CERRADA" : "Inactivo"}
+                                {valvula.estado === "ABIERTA" ? "CERRADA" : "CERRADA"}
                               </Badge>
                             </TableCell>
                             <TableCell>
