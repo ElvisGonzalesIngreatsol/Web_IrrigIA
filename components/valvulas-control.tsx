@@ -103,8 +103,7 @@ export function ValvulasControl() {
 
   useEffect(() => {
     const token = localStorage.getItem("token") // O usa tu método de auth
-    const socket = io("/api/ws", {
-      path: "/api/ws/socket.io",
+    const socket = io("http://localhost:3001/api/ws", {
       transports: ["websocket"],
       auth: { token },
       query: { token },
@@ -116,11 +115,19 @@ export function ValvulasControl() {
     socket.on("disconnect", () => setSocketConnected(false))
 
     // Escucha eventos de actualización de válvula
-    socket.on("device-data", (data: any) => {
+    socket.on("valve-data", (data: any) => {
+      console.log("datos de valvula",data)
       setValvulas((prev) =>
         prev.map((v) => (v.id === data.id ? { ...v, ...data } : v))
       )
     })
+
+    socket.on("valve-response", (data: any) => {
+      console.log("respuesta : " ,data)
+      setValvulas((prev) =>
+        prev.map((v) => (v.id === data.id ? { ...v, ...data } : v))
+      )
+    })    
 
     // Opcional: notificaciones desde el backend
     socket.on("notification", (notif: any) => {
