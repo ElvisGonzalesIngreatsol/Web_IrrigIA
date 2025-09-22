@@ -103,7 +103,7 @@ export function ValvulasControl() {
 
   useEffect(() => {
     const token = localStorage.getItem("token") // O usa tu método de auth
-    const socket = io("http://localhost:3001/api/ws", {
+    const socket = io("https://back.irrigia.ingreatsol.com/api/ws", {
       transports: ["websocket"],
       auth: { token },
       query: { token },
