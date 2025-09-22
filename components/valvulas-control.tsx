@@ -101,34 +101,40 @@ export function ValvulasControl() {
     }
   }, [selectedFincaId, selectedLoteId])
 
-  
-  // useEffect(() => {
-  //   const token = localStorage.getItem("token") // O usa tu método de auth
-  //   const socket = io("/api/ws", {
-  //     path: "/api/ws/socket.io",
-  //     transports: ["websocket"],
-  //     auth: { token },
-  //     query: { token },
-  //     withCredentials: true,
-  //   })
-  //   socketRef.current = socket
+  useEffect(() => {
+    const token = localStorage.getItem("token") // O usa tu método de auth
+    const socket = io("http://localhost:3001/api/ws", {
+      transports: ["websocket"],
+      auth: { token },
+      query: { token },
+      withCredentials: true,
+    })
+    socketRef.current = socket
 
   //   socket.on("connect", () => setSocketConnected(true))
   //   socket.on("disconnect", () => setSocketConnected(false))
 
-  //   // Escucha eventos de actualización de válvula
-  //   socket.on("device-data", (data: any) => {
-  //     setValvulas((prev) =>
-  //       prev.map((v) => (v.id === data.id ? { ...v, ...data } : v))
-  //     )
-  //   })
+    // Escucha eventos de actualización de válvula
+    socket.on("valve-data", (data: any) => {
+      console.log("datos de valvula",data)
+      setValvulas((prev) =>
+        prev.map((v) => (v.id === data.id ? { ...v, ...data } : v))
+      )
+    })
 
-  //   // Opcional: notificaciones desde el backend
-  //   socket.on("notification", (notif: any) => {
-  //     if (notif.type === "success") showSuccess(notif.title, notif.message)
-  //     else if (notif.type === "error") showError(notif.title, notif.message)
-  //     else if (notif.type === "warning") showWarning(notif.title, notif.message)
-  //   })
+    socket.on("valve-response", (data: any) => {
+      console.log("respuesta : " ,data)
+      setValvulas((prev) =>
+        prev.map((v) => (v.id === data.id ? { ...v, ...data } : v))
+      )
+    })    
+
+    // Opcional: notificaciones desde el backend
+    socket.on("notification", (notif: any) => {
+      if (notif.type === "success") showSuccess(notif.title, notif.message)
+      else if (notif.type === "error") showError(notif.title, notif.message)
+      else if (notif.type === "warning") showWarning(notif.title, notif.message)
+    })
 
   //   return () => {
   //     socket.disconnect()
