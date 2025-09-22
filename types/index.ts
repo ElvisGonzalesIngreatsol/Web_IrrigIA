@@ -78,11 +78,12 @@ export interface Valvula {
   estado: string
   updatedAt: string
   isActive: boolean
-  caudal: number
-  presion: number
+  caudal?: number
+  presion?: number
   descripcion?: string
   createdAt: string
   fincaId: number
+  loteId: number
 }
 
 export interface Sensor {
