@@ -34,6 +34,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       "/gestion-dispositivos": "Gestión de Dispositivos",
       "/usuarios": "Gestión de Usuarios",
       "/profile": "Mi Perfil",
+      "/historico": "Histórico de Datos",
     }
     return titles[path] || "IrrigIA"
   }

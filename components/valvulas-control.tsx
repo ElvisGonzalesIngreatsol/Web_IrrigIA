@@ -101,6 +101,7 @@ export function ValvulasControl() {
     }
   }, [selectedFincaId, selectedLoteId])
 
+  
   // useEffect(() => {
   //   const token = localStorage.getItem("token") // O usa tu método de auth
   //   const socket = io("/api/ws", {
@@ -382,25 +383,6 @@ export function ValvulasControl() {
                 ))}
               </SelectContent>
             </Select>
-            {/* Botones para prender/apagar todas las válvulas del lote */}
-            {/* {selectedLoteId !== "all" && lotes.length > 0 && (
-              <div className="flex gap-2 mt-4">
-                <Button
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => handleToggleAllValvulasLote(true)}
-                  disabled={filteredValvulas.length === 0}
-                >
-                  Prender válvulas del lote {lotes.find((l) => l.id.toString() === selectedLoteId)?.nombre}
-                </Button>
-                <Button
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                  onClick={() => handleToggleAllValvulasLote(false)}
-                  disabled={filteredValvulas.length === 0}
-                >
-                  Apagar válvulas del lote {lotes.find((l) => l.id.toString() === selectedLoteId)?.nombre}
-                </Button>
-              </div>
-            )} */}
           </CardContent>
         </Card>
 

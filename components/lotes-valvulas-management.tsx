@@ -1367,16 +1367,6 @@ export function LotesValvulasManagement() {
                                 {valvula.lote || "Sin asignar"}
                               </Badge>
                             </TableCell>
-                            {/* <TableCell>
-                              <span className="font-mono text-sm" style={{ color: "#1C352D" }}>
-                                {valvula.caudal?.toFixed(1) || "0.0"} L/min
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <span className="font-mono text-sm" style={{ color: "#1C352D" }}>
-                                {valvula.presion?.toFixed(1) || "0.0"} bar
-                              </span>
-                            </TableCell> */}
                             <TableCell>
                               <Badge
                                 className="text-white font-medium"

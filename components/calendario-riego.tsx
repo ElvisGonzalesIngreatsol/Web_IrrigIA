@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,11 +17,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { apiService } from "@/lib/api"
 import { useData } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
 import { useNotifications } from "./notification-system"
 import { Calendar, Plus, Edit, Trash2, Play, ChevronLeft, ChevronRight, CalendarDays, List } from "lucide-react"
-import { useState, useMemo, useEffect } from "react"
+import Swal from "sweetalert2"
 
 export function CalendarioRiego() {
   const { schedules, fincas, addSchedule, updateSchedule, deleteSchedule } = useData()
@@ -40,6 +42,92 @@ export function CalendarioRiego() {
     frequency: "daily" as "daily" | "weekly" | "custom",
     isActive: true,
   })
+  const [fincasData, setFincasData] = useState<any[]>([])
+  const [lotesData, setLotesData] = useState<any[]>([])
+  const [valvulasData, setValvulasData] = useState<any[]>([])
+  const [selectedFincaId, setSelectedFincaId] = useState<string>("")
+  const [selectedLoteId, setSelectedLoteId] = useState<string>("")
+  const [loadingFincas, setLoadingFincas] = useState(false)
+  const [loadingLotes, setLoadingLotes] = useState(false)
+
+  // 1. Cargar fincas al montar el componente
+  useEffect(() => {
+    setLoadingFincas(true)
+    apiService.getAllFincas()
+      .then((resp) => {
+        const fincasArr =
+          Array.isArray(resp?.data?.data)
+            ? resp.data.data
+            : Array.isArray(resp?.data)
+              ? resp.data
+              : []
+        setFincasData(fincasArr)
+      })
+      .finally(() => setLoadingFincas(false))
+  }, [])
+
+  // 2. Cargar lotes cuando se selecciona una finca (igual que en control de válvulas)
+  useEffect(() => {
+    if (!selectedFinca) {
+      setLotesData([])
+      setSelectedLote("")
+      return
+    }
+    setLoadingLotes(true)
+    apiService.request(`/api/lotes/all/${selectedFinca}`)
+      .then((resp) => {
+        setLotesData(resp?.data?.data || [])
+      })
+      .finally(() => setLoadingLotes(false))
+    setSelectedLote("")
+  }, [selectedFinca])
+
+  const userFincas = useMemo(() => {
+    if (user?.role === "ADMIN") {
+      return fincasData
+    }
+
+    const assignedFincas = user?.fincaIds
+      ? fincasData.filter((f) => user.fincaIds!.includes(f.id))
+      : user?.fincaId
+        ? fincasData.filter((f) => f.id === user.fincaId)
+        : []
+
+    return assignedFincas
+  }, [fincasData, user])
+
+  const autoSelectedFinca = useMemo(() => {
+    if (user?.role === "USER" && userFincas.length === 1) {
+      return userFincas[0].id
+    }
+    return selectedFinca
+  }, [user, userFincas, selectedFinca])
+
+  // 2. Cargar lotes de la finca seleccionada
+  useEffect(() => {
+    // Usa el valor correcto para el combo de finca
+    const fincaId = selectedFinca || autoSelectedFinca
+    if (!fincaId) {
+      setLotesData([])
+      setSelectedLote("")
+      return
+    }
+    // Busca la finca seleccionada en fincasData y toma sus lotes directamente
+    let fincaObj = fincasData.find((f) => {
+      // Asegura comparación por string para evitar problemas de tipo
+      return f.id?.toString() === fincaId?.toString()
+    })
+    // Si no encuentra, intenta buscar por nombre (por si el id no está bien)
+    if (!fincaObj && fincasData.length > 0) {
+      fincaObj = fincasData.find((f) => f.nombre?.toString() === fincaId?.toString())
+    }
+    if (fincaObj && Array.isArray(fincaObj.lotes)) {
+      setLotesData(fincaObj.lotes)
+    } else {
+      setLotesData([])
+    }
+    setSelectedLote("")
+  }, [selectedFinca, autoSelectedFinca, fincasData])
 
   const navigateMonth = (direction: "prev" | "next") => {
     setCurrentDate((prev) => {
@@ -94,28 +182,7 @@ export function CalendarioRiego() {
     return colors[index % colors.length]
   }
 
-  const userFincas = useMemo(() => {
-    if (user?.role === "ADMIN") {
-      return fincas
-    }
-
-    const assignedFincas = user?.fincaIds
-      ? fincas.filter((f) => user.fincaIds!.includes(f.id))
-      : user?.fincaId
-        ? fincas.filter((f) => f.id === user.fincaId)
-        : []
-
-    return assignedFincas
-  }, [fincas, user])
-
-  const autoSelectedFinca = useMemo(() => {
-    if (user?.role === "USER" && userFincas.length === 1) {
-      return userFincas[0].id
-    }
-    return selectedFinca
-  }, [user, userFincas, selectedFinca])
-
-  const selectedFincaData = fincas.find((f) => f.id === autoSelectedFinca)
+  const selectedFincaData = fincasData.find((f) => f.id === autoSelectedFinca)
   const availableLotes = selectedFincaData?.lotes || []
   const selectedLoteData = availableLotes.find((l) => l.id === selectedLote)
   const availableValvulas = selectedLoteData?.valvulas || []
@@ -128,15 +195,22 @@ export function CalendarioRiego() {
     }
   }, [user, userFincas, availableLotes, selectedLote])
 
-  const allValvulas = fincas.flatMap((finca) =>
-    finca.lotes.flatMap((lote) =>
-      lote.valvulas.map((valvula) => ({
-        ...valvula,
-        loteName: lote.name,
-        fincaName: finca.name,
-      })),
-    ),
-  )
+  // Protege el acceso a lotes y válvulas para evitar errores si no existen
+  const allValvulas = Array.isArray(fincasData)
+    ? fincasData.flatMap((finca) =>
+        Array.isArray(finca.lotes)
+          ? finca.lotes.flatMap((lote) =>
+              Array.isArray(lote.valvulas)
+                ? lote.valvulas.map((valvula) => ({
+                    ...valvula,
+                    lotenombre: lote.nombre,
+                    fincanombre: finca.nombre,
+                  }))
+                : []
+            )
+          : []
+      )
+    : []
 
   const handleAddSchedule = () => {
     if (
@@ -254,11 +328,11 @@ export function CalendarioRiego() {
       return (
         valvulaInfo &&
         userFincaIds.some((fincaId) =>
-          fincas.find((f) => f.id === fincaId)?.lotes.some((l) => l.valvulas.some((v) => v.id === schedule.valvulaId)),
+          fincasData.find((f) => f.id === fincaId)?.lotes.some((l) => l.valvulas.some((v) => v.id === schedule.valvulaId)),
         )
       )
     })
-  }, [schedules, user, userFincas, fincas])
+  }, [schedules, user, userFincas, fincasData])
 
   const activeSchedules = filteredSchedules.filter((s) => s.isActive).length
   const totalSchedules = filteredSchedules.length
@@ -299,6 +373,80 @@ export function CalendarioRiego() {
       message: "El programa de riego ha sido eliminado exitosamente",
       autoClose: true,
       duration: 3000,
+    })
+  }
+
+  // Estado para edición de programa
+  const [editingSchedule, setEditingSchedule] = useState<any | null>(null)
+
+  // Función para abrir el modal de edición
+  const openEditSchedule = (schedule: any) => {
+    setEditingSchedule(schedule)
+    setShowAddDialog(true)
+    setSelectedFinca(schedule.fincaId?.toString() || "")
+    setSelectedLote(schedule.loteId?.toString() || "")
+    setNewSchedule({
+      loteId: schedule.loteId?.toString() || "",
+      valvulaIds: [schedule.valvulaId?.toString()],
+      startDate: schedule.startDate || "",
+      startTime: schedule.startTime || "",
+      duration: schedule.duration || 30,
+      frequency: schedule.frequency || "daily",
+      isActive: schedule.isActive ?? true,
+    })
+  }
+
+  // Función para eliminar con confirmación
+  const confirmDeleteSchedule = (scheduleId: string) => {
+    Swal.fire({
+      title: "¿Eliminar programa?",
+      text: "¿Estás seguro que deseas eliminar este programa de riego?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#1C352D",
+      cancelButtonColor: "#A6B28B",
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        handleDeleteSchedule(scheduleId)
+      }
+    })
+  }
+
+  // Cargar válvulas del lote seleccionado
+  useEffect(() => {
+    if (!selectedLote) {
+      setValvulasData([])
+      return
+    }
+    // Busca el lote en lotesData y toma sus válvulas
+    const loteObj = lotesData.find((l) => l.id?.toString() === selectedLote?.toString())
+    if (loteObj && Array.isArray(loteObj.valvulas) && loteObj.valvulas.length > 0) {
+      setValvulasData(loteObj.valvulas)
+    } else {
+      // Si no tiene valvulas, intenta cargar por API (por si el backend no las incluye en el lote)
+      apiService.request(`/api/valvulas/lote/${selectedLote}`)
+        .then((resp) => {
+          setValvulasData(resp?.data?.data || [])
+        })
+        .catch(() => setValvulasData([]))
+    }
+  }, [selectedLote, lotesData])
+
+  // Función para limpiar todos los campos y selecciones del formulario
+  const resetScheduleForm = () => {
+    setSelectedFinca("")
+    setSelectedLote("")
+    setValvulasData([])
+    setNewSchedule({
+      loteId: "",
+      valvulaIds: [],
+      startDate: "",
+      startTime: "",
+      duration: 30,
+      frequency: "daily",
+      isActive: true,
     })
   }
 
@@ -348,7 +496,18 @@ export function CalendarioRiego() {
             </Button>
           </div>
 
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+          {/* Dialog de edición/creación de programa */}
+          <Dialog
+            open={showAddDialog}
+            onOpenChange={(open) => {
+              if (!open) {
+                resetScheduleForm()
+                setEditingSchedule(null)
+              }
+              setShowAddDialog(open)
+            }}
+            closeOnInteractOutside={false}
+          >
             <DialogTrigger asChild>
               <Button className="px-6 py-2">
                 <Plus className="h-4 w-4 mr-2" />
@@ -376,7 +535,7 @@ export function CalendarioRiego() {
                         <SelectContent>
                           {userFincas.map((finca) => (
                             <SelectItem key={finca.id} value={finca.id} className="py-3">
-                              {finca.name}
+                              {finca.nombre}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -395,14 +554,14 @@ export function CalendarioRiego() {
                     <Label htmlFor="lote" className="text-sm font-medium">
                       Lote
                     </Label>
-                    <Select value={selectedLote} onValueChange={handleLoteChange}>
+                    <Select value={selectedLote} onValueChange={handleLoteChange} disabled={loadingLotes || lotesData.length === 0}>
                       <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Selecciona un lote" />
+                        <SelectValue placeholder={loadingLotes ? "Cargando lotes..." : "Selecciona un lote"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableLotes.map((lote) => (
-                          <SelectItem key={lote.id} value={lote.id} className="py-3">
-                            {lote.name} - {lote.cropType}
+                        {lotesData.map((lote) => (
+                          <SelectItem key={lote.id?.toString()} value={lote.id?.toString()} className="py-3">
+                            {lote.nombre} {lote.cropType ? `- ${lote.cropType}` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -410,7 +569,7 @@ export function CalendarioRiego() {
                   </div>
                 </div>
 
-                {availableValvulas.length > 0 && (
+                {valvulasData.length > 0 && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <Label className="text-base font-semibold">Seleccionar Válvulas</Label>
@@ -419,7 +578,10 @@ export function CalendarioRiego() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => handleSelectAllValvulas(true)}
+                          onClick={() => setNewSchedule((prev) => ({
+                            ...prev,
+                            valvulaIds: valvulasData.map((v) => v.id)
+                          }))}
                           className="px-4 py-2"
                         >
                           Seleccionar Todas
@@ -428,7 +590,10 @@ export function CalendarioRiego() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => handleSelectAllValvulas(false)}
+                          onClick={() => setNewSchedule((prev) => ({
+                            ...prev,
+                            valvulaIds: []
+                          }))}
                           className="px-4 py-2"
                         >
                           Deseleccionar Todas
@@ -436,13 +601,21 @@ export function CalendarioRiego() {
                       </div>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 max-h-48 overflow-y-auto border rounded-lg p-4">
-                      {availableValvulas.map((valvula) => (
+                      {valvulasData.map((valvula) => (
                         <div key={valvula.id} className="flex items-center space-x-3 p-3 hover:bg-muted/50 rounded-md">
                           <input
                             type="checkbox"
                             id={`valvula-${valvula.id}`}
                             checked={newSchedule.valvulaIds.includes(valvula.id)}
-                            onChange={(e) => handleValvulaToggle(valvula.id, e.target.checked)}
+                            onChange={(e) => {
+                              const checked = e.target.checked
+                              setNewSchedule((prev) => ({
+                                ...prev,
+                                valvulaIds: checked
+                                  ? [...prev.valvulaIds, valvula.id]
+                                  : prev.valvulaIds.filter((id) => id !== valvula.id)
+                              }))
+                            }}
                             className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                           />
                           <label
@@ -450,24 +623,17 @@ export function CalendarioRiego() {
                             className="flex-1 text-sm font-medium cursor-pointer"
                           >
                             <div className="flex items-center justify-between">
-                              <span>{valvula.name}</span>
+                              <span>{valvula.nombre || valvula.name}</span>
                               <Badge variant="outline" className="text-xs px-2 py-1">
-                                {valvula.flowRate} L/min
+                                {valvula.caudal || valvula.flowRate} L/min
                               </Badge>
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {valvula.tipo === "aspersion"
-                                ? "Aspersión"
-                                : valvula.tipo === "goteo"
-                                  ? "Goteo"
-                                  : "Microaspersión"}
                             </div>
                           </label>
                         </div>
                       ))}
                     </div>
                     <div className="text-sm text-muted-foreground font-medium">
-                      {newSchedule.valvulaIds.length} de {availableValvulas.length} válvulas seleccionadas
+                      {newSchedule.valvulaIds.length} de {valvulasData.length} válvulas seleccionadas
                     </div>
                   </div>
                 )}
@@ -561,12 +727,20 @@ export function CalendarioRiego() {
                 </div>
               </div>
               <DialogFooter className="gap-3 pt-6">
-                <Button variant="outline" onClick={() => setShowAddDialog(false)} className="px-6 py-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    resetScheduleForm()
+                    setShowAddDialog(false)
+                    setEditingSchedule(null)
+                  }}
+                  className="px-6 py-2"
+                >
                   Cancelar
                 </Button>
                 <Button onClick={handleAddSchedule} className="px-6 py-2">
                   <Plus className="h-4 w-4 mr-2" />
-                  Crear Programa
+                  {editingSchedule ? "Actualizar Programa" : "Crear Programa"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -665,9 +839,35 @@ export function CalendarioRiego() {
                         return (
                           <div
                             key={schedule.id}
-                            className={`text-xs p-1 rounded text-white font-medium ${getScheduleColor(schedule, scheduleIndex)}`}
+                            className={`text-xs p-1 rounded text-white font-medium ${getScheduleColor(schedule, scheduleIndex)} cursor-pointer`}
+                            onClick={() => {
+                              // Mostrar opciones de editar/eliminar
+                              Swal.fire({
+                                title: "Programa de Riego",
+                                html: `
+                                  <div style='text-align:left'>
+                                    <b>Válvula:</b> ${valvulaInfo?.nombre || valvulaInfo?.name}<br/>
+                                    <b>Hora:</b> ${schedule.startTime}<br/>
+                                    <b>Duración:</b> ${schedule.duration} min<br/>
+                                  </div>
+                                `,
+                                showCancelButton: true,
+                                showDenyButton: true,
+                                confirmButtonText: "Editar",
+                                denyButtonText: "Eliminar",
+                                cancelButtonText: "Cerrar",
+                                confirmButtonColor: "#1C352D",
+                                denyButtonColor: "#F5C9B0",
+                              }).then((result) => {
+                                if (result.isConfirmed) {
+                                  openEditSchedule(schedule)
+                                } else if (result.isDenied) {
+                                  confirmDeleteSchedule(schedule.id)
+                                }
+                              })
+                            }}
                           >
-                            {schedule.startTime} {valvulaInfo?.name}
+                            {schedule.startTime} {valvulaInfo?.nombre || valvulaInfo?.name}
                           </div>
                         )
                       })}
@@ -753,7 +953,7 @@ export function CalendarioRiego() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDeleteSchedule(schedule.id)}
+                          onClick={() => confirmDeleteSchedule(schedule.id)}
                           className="p-2"
                         >
                           <Trash2 className="h-4 w-4" />

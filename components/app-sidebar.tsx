@@ -123,6 +123,11 @@ export function AppSidebar() {
       icon: Users,
       href: "/usuarios",
     },
+    {
+      title: "Historico de Datos",
+      icon: Users,
+      href: "/historico",
+    },
   ]
 
   const menuItems = user?.role === "ADMIN" ? adminMenuItems : clientMenuItems
