@@ -1262,21 +1262,7 @@ export function LotesValvulasManagement() {
                               </Badge>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              {/* <div>
-                                <span className="text-gray-500">Flujo:</span>
-                                <div className="font-medium" style={{ color: "#1C352D" }}>
-                                  {valvula.caudal?.toFixed(1) || "0.0"} L/min
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-gray-500">Presión:</span>
-                                <div className="font-medium" style={{ color: "#1C352D" }}>
-                                  {valvula.presion?.toFixed(1) || "0.0"} bar
-                                </div>
-                              </div> */}
-                            </div>
-
+                            
                             <div className="text-xs">
                               <span className="text-gray-500">Device ID:</span>
                               <div className="font-mono text-xs mt-1" style={{ color: "#1C352D" }}>
@@ -1332,12 +1318,6 @@ export function LotesValvulasManagement() {
                         <TableHead className="font-semibold" style={{ color: "#1C352D" }}>
                           Lote
                         </TableHead>
-                        {/* <TableHead className="font-semibold" style={{ color: "#1C352D" }}>
-                          Flujo
-                        </TableHead>
-                        <TableHead className="font-semibold" style={{ color: "#1C352D" }}>
-                          Presión
-                        </TableHead> */}
                         <TableHead className="font-semibold" style={{ color: "#1C352D" }}>
                           Estado
                         </TableHead>
@@ -1375,7 +1355,7 @@ export function LotesValvulasManagement() {
                                   color: valvula.estado === "ABIERTA" ? "#F9F6F3" : "#1C352D",
                                 }}
                               >
-                                {valvula.estado === "ABIERTA" ? "CERRADA" : "CERRADA"}
+                                {valvula.estado === "ABIERTA" ? "ABIERTA" : "CERRADA"}
                               </Badge>
                             </TableCell>
                             <TableCell>

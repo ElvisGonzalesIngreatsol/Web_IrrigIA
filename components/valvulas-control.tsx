@@ -135,27 +135,7 @@ export function ValvulasControl() {
       else if (notif.type === "error") showError(notif.title, notif.message)
       else if (notif.type === "warning") showWarning(notif.title, notif.message)
     })
-
-  //   return () => {
-  //     socket.disconnect()
-  //   }
-  // }, [])
-
-  // // NUEVO: Suscribirse a cada válvula mostrada
-  // useEffect(() => {
-  //   if (!socketRef.current || !socketConnected) return
-  //   filteredValvulas.forEach((valvula) => {
-  //     socketRef.current?.emit("subscribeToDevice", { valvulaId: valvula.id })
-  //   })
-  //   // Limpieza: desuscribirse al desmontar o cambiar válvulas
-  //   return () => {
-  //     filteredValvulas.forEach((valvula) => {
-  //       socketRef.current?.emit("unsubscribeFromDevice", { valvulaId: valvula.id })
-  //     })
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [socketConnected, filteredValvulas.map((v) => v.id).join(",")])
-
+  }, [showError, showSuccess, showWarning])
   // Encender/apagar todas las válvulas del lote seleccionado
   const handleToggleAllValvulasLote = async (turnOn: boolean) => {
     if (!selectedLoteId || selectedLoteId === "all") return
@@ -292,6 +272,61 @@ export function ValvulasControl() {
         return "Desconocido"
     }
   }
+
+  // Estado para los contadores de tiempo de válvulas abiertas (persistente en localStorage y global)
+  const [valvulaTimers, setValvulaTimers] = useState<{ [id: number]: number }>(() => {
+    try {
+      const saved = localStorage.getItem("valvulaTimers")
+      return saved ? JSON.parse(saved) : {}
+    } catch {
+      return {}
+    }
+  })
+
+  // Actualiza los contadores cada segundo y guarda en localStorage/global
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Solo actualiza si hay válvulas abiertas
+      let changed = false
+      setValvulaTimers((prev) => {
+        const updated: { [id: number]: number } = { ...prev }
+        filteredValvulas.forEach((v) => {
+          if (v.estado === "ABIERTA") {
+            updated[v.id] = (updated[v.id] || 0) + 1
+            changed = true
+          }
+        })
+        if (changed) {
+          localStorage.setItem("valvulaTimers", JSON.stringify(updated))
+          window.valvulaTimersGlobal = updated // Guardar en window para acceso global
+        }
+        return updated
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [filteredValvulas])
+
+  // Reinicia el contador al cambiar el estado de la válvula y guarda en localStorage/global
+  useEffect(() => {
+    filteredValvulas.forEach((v) => {
+      if (v.estado !== "ABIERTA" && valvulaTimers[v.id]) {
+        setValvulaTimers((prev) => {
+          const updated = { ...prev, [v.id]: 0 }
+          localStorage.setItem("valvulaTimers", JSON.stringify(updated))
+          window.valvulaTimersGlobal = updated
+          return updated
+        })
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredValvulas.map(v => v.estado).join(",")])
+
+  // Al montar el componente, sincroniza con window si existe
+  useEffect(() => {
+    if (window.valvulaTimersGlobal) {
+      setValvulaTimers(window.valvulaTimersGlobal)
+    }
+  }, [])
 
   if (isLoading) {
     return (
@@ -575,15 +610,25 @@ export function ValvulasControl() {
                     <span className="text-sm font-semibold text-slate-800">{(valvula.caudal || 0) * 1.25} L/min</span>
                   </div>
 
-                  <div className="flex items-center justify-between py-2">
+                  {/* QUITAR RENDIMIENTO */}
+                  {/* <div className="flex items-center justify-between py-2">
                     <span className="text-sm font-medium text-slate-700">Rendimiento:</span>
                     <span className="text-sm font-semibold text-slate-800">
                       {valvula.estado === "ABIERTA" ? "81%" : "0%"}
                     </span>
                   </div>
-
                   <div className="space-y-2">
                     <Progress value={valvula.estado === "ABIERTA" ? 81 : 0} className="h-2 bg-slate-200" />
+                  </div> */}
+
+                  {/* NUEVO: Contador de tiempo encendida */}
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm font-medium text-slate-700">Tiempo encendida:</span>
+                    <span className="text-sm font-semibold text-blue-700">
+                      {valvula.estado === "ABIERTA"
+                        ? `${Math.floor((valvulaTimers[valvula.id] || 0) / 60)} min ${((valvulaTimers[valvula.id] || 0) % 60)} seg`
+                        : "0 min"}
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-between py-2 text-sm text-slate-600 border-t border-slate-200 pt-4">

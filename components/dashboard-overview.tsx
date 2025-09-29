@@ -28,13 +28,13 @@ export function DashboardOverview() {
   const [currentTime, setCurrentTime] = useState(new Date())
 
   // Filtrar datos según el rol del usuario
-  const userFincas = user?.role === "admin" ? fincas : user?.fincaId ? fincas.filter((f) => f.id === user.fincaId) : []
-  const userLotes = user?.role === "admin" ? lotes : lotes.filter((l) => userFincas.some((f) => f.id === l.fincaId))
+  const userFincas = user?.role === "ADMIN" ? fincas : user?.fincaId ? fincas.filter((f) => f.id === user.fincaId) : []
+  const userLotes = user?.role === "ADMIN" ? lotes : lotes.filter((l) => userFincas.some((f) => f.id === l.fincaId))
   const userValvulas =
-    user?.role === "admin" ? valvulas : valvulas.filter((v) => userFincas.some((f) => f.id === v.fincaId))
-  const userSensors = user?.role === "admin" ? sensors : sensors.filter((s) => userLotes.some((l) => l.id === s.loteId))
+    user?.role === "ADMIN" ? valvulas : valvulas.filter((v) => userFincas.some((f) => f.id === v.fincaId))
+  const userSensors = user?.role === "ADMIN" ? sensors : sensors.filter((s) => userLotes.some((l) => l.id === s.loteId))
   const userSuggestions =
-    user?.role === "admin" ? suggestions : suggestions.filter((s) => userFincas.some((f) => f.id === s.fincaId))
+    user?.role === "ADMIN" ? suggestions : suggestions.filter((s) => userFincas.some((f) => f.id === s.fincaId))
 
   // Actualizar hora cada minuto
   useEffect(() => {
@@ -82,7 +82,7 @@ export function DashboardOverview() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-2">
           <h1 className="text-2xl sm:text-3xl font-bold text-[rgba(28,53,45,1)] mb-2">
-            ¡Bienvenido, {user?.name?.split(" ")[0] || "Usuario"}! 🌱
+            ¡Bienvenido, {user?.username?.split(" ")[0] || "Usuario"}! 🌱
           </h1>
           <p className="text-muted-foreground pl-1">
             {user?.role === "ADMIN"
