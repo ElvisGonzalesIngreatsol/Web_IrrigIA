@@ -154,8 +154,8 @@ export function ProfileManagement() {
             <div className="space-y-1">
               <h3 className="font-semibold text-lg">{user.name}</h3>
               <p className="text-sm text-muted-foreground">{user.email}</p>
-              <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                {user.role === "admin" ? "Administrador" : "Cliente"}
+              <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>
+                {user.role === "ADMIN" ? "Administrador" : "Cliente"}
               </Badge>
             </div>
           </div>
@@ -182,7 +182,7 @@ export function ProfileManagement() {
             </div>
             <div className="space-y-2">
               <Label>Rol</Label>
-              <Input value={user.role === "admin" ? "Administrador" : "Cliente"} disabled />
+              <Input value={user.role === "ADMIN" ? "Administrador" : "Cliente"} disabled />
             </div>
             <div className="space-y-2">
               <Label>Estado</Label>

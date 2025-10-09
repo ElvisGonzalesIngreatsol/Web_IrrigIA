@@ -32,24 +32,24 @@ export function SensoresDashboard() {
   const userLotes = user?.role === "ADMIN" ? lotes : lotes.filter((l) => userFincas.some((f) => f.id === l.fincaId))
   const userSensors = user?.role === "ADMIN" ? sensors : sensors.filter((s) => userLotes.some((l) => l.id === s.loteId))
 
-  const filteredLotes = selectedFincaId === "all" ? userLotes : userLotes.filter((l) => l.fincaId === selectedFincaId)
+  const filteredLotes = selectedFincaId === "all" ? userLotes : userLotes.filter((l) => l.fincaId.toString() === selectedFincaId.toString())
   const filteredSensors = userSensors.filter((sensor) => {
     const sensorLote = userLotes.find((l) => l.id === sensor.loteId)
     if (!sensorLote) return false
 
     // Filtrar por finca si está seleccionada
-    if (selectedFincaId !== "all" && sensorLote.fincaId !== selectedFincaId) return false
+    if (selectedFincaId !== "all" && sensorLote.fincaId.toString() !== selectedFincaId.toString()) return false
 
     // Filtrar por lote si está seleccionado
-    if (selectedLoteId !== "all" && sensor.loteId !== selectedLoteId) return false
+    if (selectedLoteId !== "all" && sensor.loteId.toString() !== selectedLoteId.toString()) return false
 
     return true
   })
 
   useEffect(() => {
     if (selectedFincaId !== "all") {
-      const lotesInFinca = userLotes.filter((l) => l.fincaId === selectedFincaId)
-      if (selectedLoteId !== "all" && !lotesInFinca.some((l) => l.id === selectedLoteId)) {
+      const lotesInFinca = userLotes.filter((l) => l.fincaId.toString() === selectedFincaId.toString())
+      if (selectedLoteId !== "all" && !lotesInFinca.some((l) => l.id.toString() === selectedLoteId.toString())) {
         setSelectedLoteId("all")
       }
     }
@@ -58,7 +58,7 @@ export function SensoresDashboard() {
   // Establecer finca por defecto si es cliente
   useEffect(() => {
     if (user?.role === "USER" && user.fincaId && selectedFincaId === "all") {
-      setSelectedFincaId(user.fincaId)
+      setSelectedFincaId(user.fincaId.toString())
     }
   }, [user, selectedFincaId])
 
@@ -157,8 +157,8 @@ export function SensoresDashboard() {
                     Todas las fincas ({userFincas.length})
                   </SelectItem>
                   {userFincas.map((finca) => (
-                    <SelectItem key={finca.id} value={finca.id} className="py-3">
-                      {finca.name}
+                    <SelectItem key={finca.id} value={finca.id.toString()} className="py-3">
+                      {finca.nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -183,8 +183,8 @@ export function SensoresDashboard() {
                 {filteredLotes.map((lote) => {
                   const finca = userFincas.find((f) => f.id === lote.fincaId)
                   return (
-                    <SelectItem key={lote.id} value={lote.id} className="py-3">
-                      {lote.name} {selectedFincaId === "all" && finca && `(${finca.name})`}
+                    <SelectItem key={lote.id.toString()} value={lote.id.toString()} className="py-3">
+                      {lote.nombre} {selectedFincaId === "all" && finca && `(${finca.nombre})`}
                     </SelectItem>
                   )
                 })}
@@ -210,7 +210,7 @@ export function SensoresDashboard() {
               {selectedFincaId !== "all" && (
                 <div className="flex justify-between items-center py-1 text-blue-600">
                   <span>Finca seleccionada:</span>
-                  <span className="font-semibold">{userFincas.find((f) => f.id === selectedFincaId)?.name}</span>
+                  <span className="font-semibold">{userFincas.find((f) => f.id.toString() === selectedFincaId.toString())?.nombre}</span>
                 </div>
               )}
             </div>
@@ -287,7 +287,7 @@ export function SensoresDashboard() {
                   <div className={`w-3 h-3 rounded-full ${getStatusColor(sensor.status)}`} />
                 </div>
                 <CardDescription className="text-sm mt-2">
-                  {lote?.name} - {finca?.name}
+                  {lote?.nombre} - {finca?.nombre}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5 pt-0">

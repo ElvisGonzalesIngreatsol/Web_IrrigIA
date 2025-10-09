@@ -149,14 +149,14 @@ export function LotesValvulasManagement() {
 
   // Cambia filteredValvulas para usar las válvulas de la finca seleccionada
   const filteredValvulas = valvulasFinca
-    .filter(
-      (valvula) =>
+    .filter((valvula) => {
+      const loteName =
+        filteredLotes.find((l) => l.id?.toString() === valvula.loteId?.toString())?.nombre || ""
+      return (
         valvula.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        filteredLotes
-          .find((l) => l.id.toString() === valvula.id.toString())
-          ?.nombre?.toLowerCase()
-          .includes(searchTerm.toLowerCase()),
-    )
+        loteName.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    })
 
   const totalValvulas = filteredValvulas.length
   const totalPages = Math.ceil(totalValvulas / itemsPerPage)
@@ -178,18 +178,34 @@ export function LotesValvulasManagement() {
     setFincasError(null)
     setLotesError(null)
     try {
-      const fincasResp = await apiService.getAllFincas()
-      if (fincasResp.success) setFincas(fincasResp.data.data || [])
-      else setFincasError(fincasResp.error || "Error al obtener fincas")
+      const fincasResp: any = await apiService.getAllFincas()
+      // Acepta respuesta en forma de arreglo o en forma { success, data: { data } }
+      if (Array.isArray(fincasResp)) {
+        setFincas(fincasResp || [])
+      } else if (fincasResp?.success) {
+        setFincas(fincasResp.data?.data || [])
+      } else {
+        setFincasError(fincasResp?.error || "Error al obtener fincas")
+      }
 
       if (selectedFincaId) {
-        const lotesResp = await apiService.getLotes(selectedFincaId)
-        if (lotesResp.success) setLotes(lotesResp.data.data || [])
-        else setLotesError(lotesResp.error || "Error al obtener lotes")
+        const lotesResp: any = await apiService.getLotes(selectedFincaId)
+        if (Array.isArray(lotesResp)) {
+          setLotes(lotesResp || [])
+        } else if (lotesResp?.success) {
+          setLotes(lotesResp.data?.data || [])
+        } else {
+          setLotesError(lotesResp?.error || "Error al obtener lotes")
+        }
 
-        const valvulasResp = await apiService.getValvulas({ fincaId: selectedFincaId })
-        if (valvulasResp.success) setValvulasFinca(valvulasResp.data.data || [])
-        else setValvulasFinca([])
+        const valvulasResp: any = await apiService.getValvulas({ fincaId: selectedFincaId })
+        if (Array.isArray(valvulasResp)) {
+          setValvulasFinca(valvulasResp || [])
+        } else if (valvulasResp?.success) {
+          setValvulasFinca(valvulasResp.data?.data || [])
+        } else {
+          setValvulasFinca([])
+        }
       }
     } catch (err) {
       setFincasError("Error al actualizar datos")
@@ -223,7 +239,6 @@ export function LotesValvulasManagement() {
       state: true,
       valvulaIds: [],
       coordinates: [],
-      Lote: "",
     })
     setEditingLote(null)
   }
@@ -508,16 +523,24 @@ export function LotesValvulasManagement() {
         setLoadingFincas(true)
         setFincasError(null)
         const response = await apiService.getAllFincas()
-        if (response.success) {
-          setFincas(response.data.data || [])
-          console.log("[v0] Fincas loaded from getAllFincas:", response.data.data?.length || 0)
+        // Acepta respuesta en forma de arreglo o en forma { success, data: { data } }
+        if (Array.isArray(response)) {
+          setFincas(response || [])
+          console.log("[v0] Fincas loaded from getAllFincas:", response.length || 0)
+        } else if (response && (response as any).success) {
+          // Cast to any antes de acceder a .data para evitar error de tipo cuando response puede ser any[]
+          setFincas((response as any).data?.data || [])
+          console.log(
+            "[v0] Fincas loaded from getAllFincas:",
+            (response as any).data?.data?.length || 0
+          )
         } else {
-          throw new Error(response.error || "Error al obtener fincas")
+          throw new Error((response as any)?.error || "Error al obtener fincas")
         }
       } catch (error) {
         console.error("[v0] Error loading fincas:", error)
         setFincasError(error instanceof Error ? error.message : "Error al cargar fincas")
-        showError("Error al cargar las fincas disponibles")
+        showError("Error", "Error al cargar las fincas disponibles")
       } finally {
         setLoadingFincas(false)
       }
@@ -811,7 +834,7 @@ export function LotesValvulasManagement() {
                             return (
                               <TableRow key={lote.id} style={{ borderColor: "#A6B28B" }}>
                                 <TableCell>{lote.nombre}</TableCell>
-                                <TableCell>{lote.hectareas?.toFixed(2)}</TableCell>
+                                <TableCell>{Number(((lote as any).hectareas ?? lote.area) || 0).toFixed(2)}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
                                     {loteValvulas.length}
@@ -881,7 +904,7 @@ export function LotesValvulasManagement() {
                         totalItems={totalLotes}
                         itemsPerPage={itemsPerPage}
                         startItem={startItemLotes}
-                        endItemLotes={endItemLotes}
+                        endItem={endItemLotes}
                         onPageChange={handlePageChange}
                         onItemsPerPageChange={handleItemsPerPageChange}
                       />
@@ -896,7 +919,7 @@ export function LotesValvulasManagement() {
           {/* Tab de Válvulas */}
           <TabsContent value="valvulas" className="space-y-6 mt-6">
             <div className="flex justify-between items-center bg-white rounded-xl p-6 shadow-lg border-0">
-              <h2 className="text-2xl font-semibold text-gray-800">Válvulas de {selectedFinca?.name}</h2>
+              <h2 className="text-2xl font-semibold text-gray-800">Válvulas de {selectedFinca?.nombre}</h2>
               <Dialog
                 open={isValvulaDialogOpen}
                 onOpenChange={(open) => {
@@ -905,8 +928,7 @@ export function LotesValvulasManagement() {
                   }
                   setIsValvulaDialogOpen(open)
                 }}
-                // No cerrar al hacer clic fuera
-                closeOnInteractOutside={false}
+                // Nota: 'closeOnInteractOutside' no es una prop soportada por Dialog; el cierre se controla con onOpenChange.
               >
                 <DialogTrigger asChild>
                   <Button
@@ -1240,7 +1262,7 @@ export function LotesValvulasManagement() {
                 <div className="block sm:hidden">
                   <div className="space-y-3 p-4">
                     {paginatedValvulas.map((valvula) => {
-                      const lote = filteredLotes.find((l) => l.id.toString() === valvula.id.toString())
+                      const lote = filteredLotes.find((l) => l.id?.toString() === valvula.loteId?.toString())
                       return (
                         <Card key={valvula.id} className="p-4 border border-gray-200">
                           <div className="space-y-3">
@@ -1331,7 +1353,7 @@ export function LotesValvulasManagement() {
                     </TableHeader>
                     <TableBody>
                       {paginatedValvulas.map((valvula) => {
-                        const lote = filteredLotes.find((l) => l.id.toString() === valvula.id.toString())
+                        const lote = filteredLotes.find((l) => l.id?.toString() === valvula.loteId?.toString())
                         return (
                           <TableRow key={valvula.id} style={{ borderColor: "#A6B28B" }}>
                             <TableCell>
@@ -1344,7 +1366,7 @@ export function LotesValvulasManagement() {
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" style={{ borderColor: "#A6B28B", color: "#1C352D" }}>
-                                {valvula.lote || "Sin asignar"}
+                                {lote?.nombre || "Sin asignar"}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -1428,7 +1450,7 @@ export function LotesValvulasManagement() {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-gray-800">{viewingLoteData?.nombre}</DialogTitle>
             <DialogDescription className="text-gray-600">
-              {viewingLoteData?.cultivo} - Área: {viewingLoteData?.hectareas.toFixed(2)} Ha
+              {((viewingLoteData as any)?.cultivo ? `${(viewingLoteData as any).cultivo} - ` : "")}Área: {Number(((viewingLoteData as any)?.hectareas ?? viewingLoteData?.area ?? 0)).toFixed(2)} Ha
             </DialogDescription>
           </DialogHeader>
           {viewingLoteData && selectedFinca && (

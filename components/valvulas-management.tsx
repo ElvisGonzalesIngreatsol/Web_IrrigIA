@@ -42,12 +42,18 @@ export function ValvulasManagement() {
   const [editingValvula, setEditingValvula] = useState<string | null>(null)
   const [valvulaFormData, setValvulaFormData] = useState({
     nombre: "",
-    estado: "ABIERTA" | "CERRADA",
+    loteId: "",
+    tipo: "aspersion",
+    estado: "ABIERTA",
     caudal: "",
     presion: "",
     descripcion: "",
     deviceId: "",
+    coordinates: { lat: 0, lng: 0 },
     isActive: true,
+    needsMaintenance: false,
+    maintenanceDate: "",
+    maintenanceNotes: "",
   })
 
   const fetchData = useCallback(async () => {
@@ -58,10 +64,24 @@ export function ValvulasManagement() {
         apiService.getFincas(),
         apiService.getValvulas(),
       ])
-      setFincas(fincasResponse.data || [])
-      setValvulas(valvulasResponse.data || [])
-      if (!selectedFincaId && fincasResponse.data && fincasResponse.data.length > 0) {
-        setSelectedFincaId(fincasResponse.data[0].id)
+      setFincas(
+        Array.isArray(fincasResponse)
+          ? fincasResponse
+          : (fincasResponse && (fincasResponse as { data?: Finca[] }).data) || []
+      )
+      setValvulas(
+        (valvulasResponse && (valvulasResponse as { data?: Valvula[] }).data) || []
+      )
+      const fincasList = Array.isArray(fincasResponse)
+        ? fincasResponse
+        : (fincasResponse && (fincasResponse as { data?: Finca[] }).data) || []
+
+      if (
+        !selectedFincaId &&
+        fincasList &&
+        fincasList.length > 0
+      ) {
+        setSelectedFincaId(fincasList[0].id)
       }
     } catch (err) {
       setError("Error al cargar los datos.")
@@ -76,14 +96,14 @@ export function ValvulasManagement() {
   }, [fetchData])
 
   const filteredValvulas = valvulas
-    .filter((valvula) => !selectedFincaId || valvula.fincaId === selectedFincaId)
+    .filter((valvula) => !selectedFincaId || valvula.fincaId.toString() === selectedFincaId.toString())
     .filter(
       (valvula) =>
-        valvula.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        valvula.deviceId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        valvula.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(valvula.deviceId ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         lotes
-          .find((l) => l.id === valvula.loteId)
-          ?.name?.toLowerCase()
+          .find((l) => l.id.toString() === valvula.loteId.toString())
+          ?.nombre?.toLowerCase()
           .includes(searchTerm.toLowerCase()),
     )
 
@@ -109,9 +129,10 @@ export function ValvulasManagement() {
 
   const resetForm = () => {
     setValvulaFormData({
-      name: "",
+      nombre: "",
       loteId: "",
       tipo: "aspersion",
+      estado: "ABIERTA",
       caudal: "",
       presion: "",
       descripcion: "",
@@ -154,14 +175,14 @@ export function ValvulasManagement() {
       if (editingValvula) {
         response = await apiService.updateValvula(editingValvula, valvulaData)
         if (response.success) {
-          showSuccess("Válvula Actualizada", `La válvula "${valvulaFormData.name}" ha sido actualizada exitosamente`)
+          showSuccess("Válvula Actualizada", `La válvula "${valvulaFormData.nombre}" ha sido actualizada exitosamente`)
         } else {
           showError("Error", response.error || "Ocurrió un error al actualizar la válvula")
         }
       } else {
         response = await apiService.createValvula(valvulaData)
         if (response.success) {
-          showSuccess("Válvula Creada", `La válvula "${valvulaFormData.name}" ha sido creada exitosamente`)
+          showSuccess("Válvula Creada", `La válvula "${valvulaFormData.nombre}" ha sido creada exitosamente`)
         } else {
           showError("Error", response.error || "Ocurrió un error al crear la válvula")
         }
@@ -179,27 +200,27 @@ export function ValvulasManagement() {
 
   const handleEdit = (valvula: Valvula) => {
     setValvulaFormData({
-      name: valvula.name || "",
-      loteId: valvula.loteId || "",
-      tipo: valvula.tipo || "aspersion",
+      nombre: valvula.nombre || "",
+      loteId: valvula.loteId ? valvula.loteId.toString() : "",
+      tipo: valvula.tipo || "SOLENOIDE",
       caudal: valvula.caudal?.toString() || "",
       presion: valvula.presion?.toString() || "",
       descripcion: valvula.descripcion || "",
       deviceId: valvula.deviceId || "",
       coordinates: valvula.coordinates || { lat: 0, lng: 0 },
-      isActive: valvula.status === "active",
+      isActive: valvula.isActive ?? true,
       needsMaintenance: valvula.needsMaintenance || false,
-      maintenanceDate: valvula.maintenanceDate || "",
-      maintenanceNotes: valvula.maintenanceNotes || "",
+      maintenanceDate: (valvula as any).maintenanceDate || "",
+      maintenanceNotes: (valvula as any).maintenanceNotes || "",
     })
-    setEditingValvula(valvula.id)
+    setEditingValvula(valvula.id.toString())
     setIsDialogOpen(true)
   }
 
   const handleDelete = (valvula: Valvula) => {
     Swal.fire({
       title: "¿Estás seguro?",
-      text: `Se eliminará la válvula "${valvula.name}"`,
+      text: `Se eliminará la válvula "${valvula.nombre}"`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#1C352D",
@@ -230,14 +251,14 @@ export function ValvulasManagement() {
   }
 
   const getStatusBadge = (valvula: Valvula) => {
-    if (valvula.needsMaintenance || valvula.status === "maintenance") {
+    if (valvula.estado === "maintenance") {
       return (
         <Badge variant="destructive" className="bg-orange-100 text-orange-800 border-orange-200">
           Mantenimiento
         </Badge>
       )
     }
-    if (valvula.isOpen) {
+    if (valvula.isActive) {
       return (
         <Badge variant="default" className="bg-blue-100 text-blue-800 border-blue-200">
           Regando
@@ -340,8 +361,8 @@ export function ValvulasManagement() {
                     <Label htmlFor="name">Nombre *</Label>
                     <Input
                       id="name"
-                      value={valvulaFormData.name}
-                      onChange={(e) => setValvulaFormData({ ...valvulaFormData, name: e.target.value })}
+                      value={valvulaFormData.nombre}
+                      onChange={(e) => setValvulaFormData({ ...valvulaFormData, nombre: e.target.value })}
                       placeholder="Ej: Válvula Norte A1"
                       required
                     />
@@ -366,8 +387,8 @@ export function ValvulasManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       {fincas.map((finca) => (
-                        <SelectItem key={finca.id} value={finca.id}>
-                          {finca.name}
+                        <SelectItem key={finca.id} value={finca.id.toString()}>
+                          {finca.nombre}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -386,10 +407,10 @@ export function ValvulasManagement() {
                       </SelectTrigger>
                       <SelectContent>
                         {lotes
-                          .filter((lote) => !selectedFincaId || lote.fincaId === selectedFincaId)
+                          .filter((lote) => !selectedFincaId || lote.fincaId.toString() === selectedFincaId.toString())
                           .map((lote) => (
-                            <SelectItem key={lote.id} value={lote.id}>
-                              {lote.name}
+                            <SelectItem key={lote.id} value={lote.id.toString()}>
+                              {lote.nombre}
                             </SelectItem>
                           ))}
                       </SelectContent>
@@ -489,8 +510,8 @@ export function ValvulasManagement() {
             <SelectContent>
               <SelectItem value="all">Todas las fincas</SelectItem>
               {fincas.map((finca) => (
-                <SelectItem key={finca.id} value={finca.id}>
-                  {finca.name}
+                <SelectItem key={finca.id} value={finca.id.toString()}>
+                  {finca.nombre}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -565,19 +586,19 @@ export function ValvulasManagement() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="font-medium truncate" style={{ color: "#1C352D" }}>
-                              {valvula.name}
+                              {valvula.nombre}
                             </div>
                             <div className="text-sm truncate" style={{ color: "#A6B28B" }}>
-                              Creado: {valvula.lastActivity ? new Date(valvula.lastActivity).toLocaleDateString() : "N/A"}
+                              Creado: {valvula.updatedAt ? new Date(valvula.updatedAt).toLocaleDateString() : "N/A"}
                             </div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell className="min-w-[120px]">
                         <div style={{ color: "#1C352D" }}>
-                          <div className="font-medium truncate">{lote?.name || "N/A"}</div>
+                          <div className="font-medium truncate">{lote?.nombre || "N/A"}</div>
                           <div className="text-sm truncate" style={{ color: "#A6B28B" }}>
-                            {finca?.name || "N/A"}
+                            {finca?.nombre || "N/A"}
                           </div>
                         </div>
                       </TableCell>

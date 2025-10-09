@@ -30,13 +30,21 @@ export function NodosManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingNodo, setEditingNodo] = useState<Nodo | null>(null)
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    fincaId: string
+    loteId: string
+    deviceId: string
+    coordinates: { lat: number; lng: number }
+    status: "active" | "inactive" | "maintenance"
+    batteryLevel: number
+  }>({
     name: "",
     fincaId: "",
     loteId: "",
     deviceId: "",
     coordinates: { lat: 0, lng: 0 },
-    status: "active" as const,
+    status: "active",
     batteryLevel: 85,
   })
 
@@ -59,14 +67,23 @@ export function NodosManagement() {
     }
 
     if (editingNodo) {
-      updateNodo(editingNodo.id, formData)
+      updateNodo(editingNodo.id.toString(), {
+        ...formData,
+        fincaId: Number(formData.fincaId),
+        loteId: Number(formData.loteId),
+      })
       addNotification({
         type: "success",
         title: "Nodo actualizado",
         message: `${formData.name} ha sido actualizado correctamente`,
       })
     } else {
-      addNodo(formData)
+      addNodo({
+        ...formData,
+        fincaId: Number(formData.fincaId),
+        loteId: Number(formData.loteId),
+        lastActivity: new Date(),
+      })
       addNotification({
         type: "success",
         title: "Nodo creado",
@@ -95,8 +112,8 @@ export function NodosManagement() {
     setEditingNodo(nodo)
     setFormData({
       name: nodo.name,
-      fincaId: nodo.fincaId,
-      loteId: nodo.loteId,
+      fincaId: nodo.fincaId.toString(),
+      loteId: nodo.loteId.toString(),
       deviceId: nodo.deviceId,
       coordinates: nodo.coordinates,
       status: nodo.status,
@@ -106,7 +123,7 @@ export function NodosManagement() {
   }
 
   const handleDelete = (nodoId: string) => {
-    const nodo = nodos.find((n) => n.id === nodoId)
+    const nodo = nodos.find((n) => n.id.toString() === nodoId.toString())
     if (nodo) {
       Swal.fire({
         title: "¿Estás seguro?",
@@ -131,9 +148,9 @@ export function NodosManagement() {
   }
 
   const handleRegenerateSensors = (nodoId: string) => {
-    const nodo = nodos.find((n) => n.id === nodoId)
+    const nodo = nodos.find((n) => n.id.toString() === nodoId.toString())
     if (nodo) {
-      generateAutoSensors(nodo.loteId, nodoId)
+      generateAutoSensors(nodo.loteId.toString(), nodoId.toString())
       addNotification({
         type: "success",
         title: "Sensores regenerados",
@@ -143,7 +160,7 @@ export function NodosManagement() {
   }
 
   const getNodoStats = (nodoId: string) => {
-    const nodoSensors = sensors.filter((s) => s.nodoId === nodoId)
+    const nodoSensors = sensors.filter((s) => s.nodoId !== undefined && s.nodoId.toString() === nodoId.toString())
     const onlineSensors = nodoSensors.filter((s) => s.status === "online")
 
     return {
@@ -154,7 +171,7 @@ export function NodosManagement() {
     }
   }
 
-  const availableLotes = lotes.filter((lote) => lote.fincaId === formData.fincaId)
+  const availableLotes = lotes.filter((lote) => lote.fincaId.toString() === formData.fincaId.toString())
 
   return (
     <div className="space-y-6">
@@ -213,8 +230,8 @@ export function NodosManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       {fincas.map((finca) => (
-                        <SelectItem key={finca.id} value={finca.id}>
-                          {finca.name}
+                        <SelectItem key={finca.id} value={finca.id.toString()}>
+                          {finca.nombre}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -225,7 +242,7 @@ export function NodosManagement() {
                   <Select
                     value={formData.loteId}
                     onValueChange={(value) => {
-                      const lote = availableLotes.find((l) => l.id === value)
+                      const lote = availableLotes.find((l) => l.id.toString() === value.toString())
                       setFormData({
                         ...formData,
                         loteId: value,
@@ -239,8 +256,8 @@ export function NodosManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       {availableLotes.map((lote) => (
-                        <SelectItem key={lote.id} value={lote.id}>
-                          {lote.name}
+                        <SelectItem key={lote.id} value={lote.id.toString()}>
+                          {lote.nombre}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -372,7 +389,7 @@ export function NodosManagement() {
               </TableHeader>
               <TableBody>
                 {filteredNodos.map((nodo) => {
-                  const stats = getNodoStats(nodo.id)
+                  const stats = getNodoStats(nodo.id.toString())
                   const finca = fincas.find((f) => f.id === nodo.fincaId)
                   const lote = lotes.find((l) => l.id === nodo.loteId)
 
@@ -386,8 +403,8 @@ export function NodosManagement() {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div>{finca?.name}</div>
-                          <div className="text-muted-foreground">{lote?.name}</div>
+                          <div>{finca?.nombre}</div>
+                          <div className="text-muted-foreground">{lote?.nombre}</div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -443,7 +460,7 @@ export function NodosManagement() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleRegenerateSensors(nodo.id)}
+                            onClick={() => handleRegenerateSensors(nodo.id.toString())}
                             title="Regenerar sensores"
                           >
                             <Sensors className="h-4 w-4" />
@@ -454,7 +471,7 @@ export function NodosManagement() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDelete(nodo.id)}
+                            onClick={() => handleDelete(nodo.id.toString())}
                             className="text-red-600 hover:text-red-700"
                           >
                             <Trash2 className="h-4 w-4" />

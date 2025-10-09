@@ -2,10 +2,47 @@
 
 import { useEffect, useRef, useState, useMemo } from "react"
 
+interface Valvula {
+  id?: string
+  name?: string
+  nombre?: string
+  latitud?: number | string
+  longitud?: number | string
+  coordinates?: { lat?: number | string; lng?: number | string }
+  lat?: number | string
+  lng?: number | string
+  isOpen?: boolean
+  status?: "maintenance" | string
+  lastActivity?: string | number | Date
+  caudal?: number
+  flowRate?: number
+  presion?: number
+}
+
+interface Lote {
+  id?: string
+  name?: string
+  nombre?: string
+  coordinates?: Array<{ lat?: number | string; lng?: number | string }>
+  centerCoordinates?: { lat?: number | string; lng?: number | string } | null
+  area?: number | string
+  crop?: string
+  valvulas?: Valvula[]
+}
+
+interface Finca {
+  id?: string
+  name?: string
+  location?: string
+  area?: number | string
+  coordinates?: Array<{ lat?: number | string; lng?: number | string }>
+  lotes?: Lote[]
+}
+
 interface GoogleMapProps {
   center: { lat: number; lng: number }
   zoom: number
-  fincas?: any[]
+  fincas?: Finca[]
   markers?: Array<{
     position: { lat: number; lng: number }
     title: string
@@ -24,8 +61,8 @@ interface GoogleMapProps {
 
 declare global {
   interface Window {
-    google: any
-    initGoogleMap: () => void
+    google?: any
+    initGoogleMap?: () => void
   }
 }
 
@@ -227,7 +264,11 @@ export function GoogleMap({
       console.log("[v0] Map initialized successfully")
     } catch (error) {
       console.error("[v0] Error initializing map:", error)
-      setErrorMessage(`Error al inicializar el mapa: ${error.message}`)
+      if (error instanceof Error) {
+        setErrorMessage(`Error al inicializar el mapa: ${error.message}`)
+      } else {
+        setErrorMessage(`Error al inicializar el mapa: ${String(error)}`)
+      }
       setIsError(true)
       setIsLoaded(true)
     }
@@ -262,8 +303,9 @@ export function GoogleMap({
     labelsRef.current = []
   }
 
-  const createLoteIcon = (text: string) => {
-    const textWidth = text.length * 9
+  const createLoteIcon = (text?: string) => {
+    const safeLabel = typeof text === "string" ? text : String(text ?? "")
+    const textWidth = safeLabel.length * 9
     const viewBoxWidth = textWidth + 10
     const viewBoxHeight = 24
 
@@ -281,7 +323,7 @@ export function GoogleMap({
               paint-order: stroke;
             }
           </style>
-          <text x="50%" y="16" dominantBaseline="middle" textAnchor="middle">${text}</text>
+          <text x="50%" y="16" dominantBaseline="middle" textAnchor="middle">${safeLabel}</text>
         </svg>
       `)}`,
       scaledSize: new window.google.maps.Size(viewBoxWidth, viewBoxHeight),
@@ -292,236 +334,229 @@ export function GoogleMap({
   const createFincaPolygons = () => {
     if (!map || !window.google?.maps) return
 
-    fincas.forEach((finca) => {
-      try {
-        if (finca.coordinates && Array.isArray(finca.coordinates) && finca.coordinates.length > 0) {
-          const validatedCoordinates = validateCoordinateArray(finca.coordinates)
+    try {
+      fincas.forEach((finca) => {
+        if (!finca.coordinates || !Array.isArray(finca.coordinates) || finca.coordinates.length === 0) return
 
-          if (validatedCoordinates.length < 3) {
-            console.warn("[v0] Finca has insufficient valid coordinates:", finca.name, validatedCoordinates.length)
-            return
-          }
-
-          console.log("[v0] Creating finca polygon with", validatedCoordinates.length, "valid coordinates")
-
-          const fincaPolygon = new window.google.maps.Polygon({
-            paths: validatedCoordinates,
-            strokeColor: "#22C55E",
-            strokeOpacity: 1.0,
-            strokeWeight: 3,
-            fillColor: "#22C55E",
-            fillOpacity: 0.0,
-            map: map,
-          })
-
-          polygonsRef.current.push(fincaPolygon)
-
-          if (fincas.length === 1) {
-            const bounds = new window.google.maps.LatLngBounds()
-            validatedCoordinates.forEach((coord) => bounds.extend(coord))
-            map.fitBounds(bounds)
-            setTimeout(() => {
-              const currentZoom = map.getZoom()
-              if (currentZoom > 18) map.setZoom(18)
-              if (currentZoom < 12) map.setZoom(12)
-            }, 100)
-          }
-
-          const fincaInfoWindow = new window.google.maps.InfoWindow({
-            content: `
-              <div style="padding: 12px; font-family: system-ui; min-width: 200px;">
-                <h3 style="margin: 0 0 8px 0; font-weight: bold; color: #1f2937; font-size: 16px;">${finca.name}</h3>
-                <p style="margin: 0 0 4px 0; font-size: 13px; color: #6b7280;">📍 ${finca.location}</p>
-                <p style="margin: 0 0 4px 0; font-size: 13px; color: #6b7280;">📏 Área: ${finca.area} Ha</p>
-                <p style="margin: 0; font-size: 13px; color: #6b7280;">🍌 Cultivo: Banano</p>
-              </div>
-            `,
-          })
-
-          fincaPolygon.addListener("click", (event) => {
-            fincaInfoWindow.setPosition(event.latLng)
-            fincaInfoWindow.open(map)
-            onFincaSelect?.(finca.id)
-          })
+        const validatedCoordinates = validateCoordinateArray(finca.coordinates)
+        if (validatedCoordinates.length < 3) {
+          console.warn("[v0] Finca has insufficient valid coordinates:", finca.name, validatedCoordinates.length)
+          return
         }
 
-        if (finca.lotes && finca.lotes.length > 0) {
+        console.log("[v0] Creating finca polygon with", validatedCoordinates.length, "valid coordinates")
+
+        const fincaPolygon = new window.google.maps.Polygon({
+          paths: validatedCoordinates,
+          strokeColor: "#22C55E",
+          strokeOpacity: 1.0,
+          strokeWeight: 2,
+          fillColor: "#22C55E",
+          fillOpacity: 0.15,
+          map,
+        })
+
+        polygonsRef.current.push(fincaPolygon)
+
+        if (fincas.length === 1) {
+          const bounds = new window.google.maps.LatLngBounds()
+          validatedCoordinates.forEach((coord) => bounds.extend(coord))
+          map.fitBounds(bounds)
+          setTimeout(() => {
+            const currentZoom = map.getZoom()
+            if (currentZoom > 18) map.setZoom(18)
+            if (currentZoom < 12) map.setZoom(12)
+          }, 100)
+        }
+
+        const fincaInfoWindow = new window.google.maps.InfoWindow({
+          content: `
+            <div style="padding: 12px; font-family: system-ui; min-width: 200px;">
+              <h3 style="margin: 0 0 8px 0; font-weight: bold; color: #1f2937; font-size: 16px;">${finca.name}</h3>
+              <p style="margin: 0 0 4px 0; font-size: 13px; color: #6b7280;">📍 ${finca.location}</p>
+              <p style="margin: 0 0 4px 0; font-size: 13px; color: #6b7280;">📏 Área: ${finca.area} Ha</p>
+            </div>
+          `,
+        })
+
+        fincaPolygon.addListener("click", (event: any) => {
+          fincaInfoWindow.setPosition(event.latLng)
+          fincaInfoWindow.open(map)
+          onFincaSelect?.(finca.id ?? null)
+        })
+
+        // Lotes
+        if (finca.lotes && Array.isArray(finca.lotes) && finca.lotes.length > 0) {
           finca.lotes.forEach((lote) => {
-            if (lote.coordinates && Array.isArray(lote.coordinates) && lote.coordinates.length > 0) {
-              const validatedLoteCoordinates = validateCoordinateArray(lote.coordinates)
+            if (!lote.coordinates || !Array.isArray(lote.coordinates) || lote.coordinates.length === 0) return
 
-              if (validatedLoteCoordinates.length < 3) {
-                console.warn(
-                  "[v0] Lote has insufficient valid coordinates:",
-                  lote.name,
-                  validatedLoteCoordinates.length,
-                )
-                return
-              }
+            const validatedLoteCoordinates = validateCoordinateArray(lote.coordinates)
+            if (validatedLoteCoordinates.length < 3) {
+              console.warn("[v0] Lote has insufficient valid coordinates:", lote.name, validatedLoteCoordinates.length)
+              return
+            }
 
-              const getLoteStatus = (lote) => {
-                if (!lote.valvulas || lote.valvulas.length === 0) {
-                  return { status: "no-valves", color: "#9CA3AF", opacity: 0.3 }
-                }
+            const getLoteStatus = (l: Lote): { status: string; color: string; opacity: number } => {
+              if (!l.valvulas || l.valvulas.length === 0) return { status: "no-valves", color: "#9CA3AF", opacity: 0.3 }
 
-                const activeValves = lote.valvulas.filter((v) => v.isOpen && v.status !== "maintenance")
-                const maintenanceValves = lote.valvulas.filter((v) => v.status === "maintenance")
+              const activeValves = l.valvulas.filter((v) => v.isOpen && v.status !== "maintenance")
+              const maintenanceValves = l.valvulas.filter((v) => v.status === "maintenance")
 
-                if (activeValves.length > 0) {
-                  return { status: "irrigating", color: "#3B82F6", opacity: 0.4 }
-                } else if (maintenanceValves.length > 0) {
-                  return { status: "maintenance", color: "#EF4444", opacity: 0.4 }
-                } else {
-                  const recentlyIrrigated = lote.valvulas.some((v) => {
-                    const timeSinceLastActivity = Date.now() - new Date(v.lastActivity).getTime()
-                    return timeSinceLastActivity < 2 * 60 * 60 * 1000
-                  })
+              if (activeValves.length > 0) return { status: "irrigating", color: "#3B82F6", opacity: 0.4 }
+              if (maintenanceValves.length > 0) return { status: "maintenance", color: "#EF4444", opacity: 0.4 }
 
-                  if (recentlyIrrigated) {
-                    return { status: "irrigated", color: "#22C55E", opacity: 0.4 }
-                  } else {
-                    return { status: "inactive", color: "#EF4444", opacity: 0.4 }
-                  }
-                }
-              }
+              const recentlyIrrigated = l.valvulas.some((v) => {
+                const lastActivity = v.lastActivity
+                if (lastActivity === undefined || lastActivity === null) return false
 
-              const loteStatusInfo = getLoteStatus(lote)
+                let lastTime: number
+                if (lastActivity instanceof Date) lastTime = lastActivity.getTime()
+                else if (typeof lastActivity === "number") lastTime = lastActivity
+                else lastTime = new Date(String(lastActivity)).getTime()
 
-              const lotePolygon = new window.google.maps.Polygon({
-                paths: validatedLoteCoordinates,
-                strokeColor: loteStatusInfo.color,
-                strokeOpacity: 1.0,
-                strokeWeight: 2,
-                fillColor: loteStatusInfo.color,
-                fillOpacity: loteStatusInfo.opacity,
-                map: map,
+                if (!isFinite(lastTime) || isNaN(lastTime)) return false
+                return Date.now() - lastTime < 2 * 60 * 60 * 1000
               })
 
-              polygonsRef.current.push(lotePolygon)
+              if (recentlyIrrigated) return { status: "irrigated", color: "#22C55E", opacity: 0.4 }
+              return { status: "inactive", color: "#EF4444", opacity: 0.4 }
+            }
 
-              if (lote.centerCoordinates) {
-                const validatedCenter = validateCoordinate(lote.centerCoordinates)
-                if (validatedCenter) {
-                  const loteMarker = new window.google.maps.Marker({
-                    position: validatedCenter,
-                    map: map,
-                    icon: createLoteIcon(lote.name),
-                  })
+            const loteStatusInfo = getLoteStatus(lote)
 
-                  markersRef.current.push(loteMarker)
-                  labelsRef.current.push(loteMarker)
+            const lotePolygon = new window.google.maps.Polygon({
+              paths: validatedLoteCoordinates,
+              strokeColor: loteStatusInfo.color,
+              strokeOpacity: 1.0,
+              strokeWeight: 2,
+              fillColor: loteStatusInfo.color,
+              fillOpacity: loteStatusInfo.opacity,
+              map,
+            })
 
-                  const getStatusText = (status) => {
-                    switch (status) {
-                      case "irrigating":
-                        return "💧 Regando Ahora"
-                      case "maintenance":
-                        return "🔧 En Mantenimiento"
-                      case "irrigated":
-                        return "✅ Recientemente Regado"
-                      case "inactive":
-                        return "⏸️ Inactivo"
-                      case "no-valves":
-                        return "❌ Sin Válvulas"
-                      default:
-                        return "❓ Estado Desconocido"
-                    }
+            polygonsRef.current.push(lotePolygon)
+
+            // Lote center marker
+            if (lote.centerCoordinates) {
+              const validatedCenter = validateCoordinate(lote.centerCoordinates)
+              if (validatedCenter) {
+                const loteMarker = new window.google.maps.Marker({
+                  position: validatedCenter,
+                  map,
+                  icon: createLoteIcon(lote.nombre),
+                })
+                markersRef.current.push(loteMarker)
+                labelsRef.current.push(loteMarker)
+
+                const getStatusText = (status: string): string => {
+                  switch (status) {
+                    case "irrigating":
+                      return "💧 Regando Ahora"
+                    case "maintenance":
+                      return "🔧 En Mantenimiento"
+                    case "irrigated":
+                      return "✅ Recientemente Regado"
+                    case "inactive":
+                      return "⏸️ Inactivo"
+                    case "no-valves":
+                      return "❌ Sin Válvulas"
+                    default:
+                      return "❓ Estado Desconocido"
                   }
-
-                  const loteInfoWindow = new window.google.maps.InfoWindow({
-                    content: `
-                      <div style="padding: 10px; font-family: system-ui; min-width: 200px;">
-                        <h4 style="margin: 0 0 6px 0; font-weight: bold; color: #1f2937; font-size: 14px;">${lote.name}</h4>
-                        <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">📏 Área: ${lote.area} Ha</p>
-                        <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">🌱 Cultivo: ${lote.crop}</p>
-                        <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">💧 Válvulas: ${lote.valvulas?.length || 0}</p>
-                        <p style="margin: 0; font-size: 12px; font-weight: bold; color: ${loteStatusInfo.color};">${getStatusText(loteStatusInfo.status)}</p>
-                      </div>
-                    `,
-                  })
-
-                  lotePolygon.addListener("click", (event) => {
-                    loteInfoWindow.setPosition(event.latLng)
-                    loteInfoWindow.open(map)
-                  })
-
-                  loteMarker.addListener("click", () => {
-                    loteInfoWindow.setPosition(validatedCenter)
-                    loteInfoWindow.open(map)
-                  })
                 }
-              }
 
-              if (lote.valvulas && lote.valvulas.length > 0) {
-                lote.valvulas.forEach((valvula) => {
-                  let vLat = valvula.latitud || valvula.coordinates?.lat || valvula.lat
-                  let vLng = valvula.longitud || valvula.coordinates?.lng || valvula.lng
+                const loteInfoWindow = new window.google.maps.InfoWindow({
+                  content: `
+                    <div style="padding: 10px; font-family: system-ui; min-width: 200px;">
+                      <h4 style="margin: 0 0 6px 0; font-weight: bold; color: #1f2937; font-size: 14px;">${lote.name}</h4>
+                      <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">📏 Área: ${lote.area} Ha</p>
+                      <p style="margin: 0 0 3px 0; font-size: 12px; color: #6b7280;">🌱 Cultivo: ${lote.crop}</p>
+                      <p style="margin: 0; font-size: 12px; font-weight: bold; color: ${loteStatusInfo.color};">${getStatusText(loteStatusInfo.status)}</p>
+                    </div>
+                  `,
+                })
 
-                  // Convert strings to numbers if needed
-                  if (typeof vLat === "string") vLat = Number.parseFloat(vLat)
-                  if (typeof vLng === "string") vLng = Number.parseFloat(vLng)
+                lotePolygon.addListener("click", (event: any) => {
+                  loteInfoWindow.setPosition(event.latLng)
+                  loteInfoWindow.open(map)
+                })
 
-                  if (!isFinite(vLat) || !isFinite(vLng) || isNaN(vLat) || isNaN(vLng)) {
-                    console.warn("[v0] Invalid valve coordinates:", valvula.name, vLat, vLng)
-                    return
-                  }
-
-                  const valvePosition = { lat: vLat, lng: vLng }
-
-                  const getValveColor = () => {
-                    if (valvula.status === "maintenance") return "#EF4444"
-                    if (valvula.isOpen) return "#3B82F6"
-                    return "#6B7280"
-                  }
-
-                  const valveMarker = new window.google.maps.Marker({
-                    position: valvePosition,
-                    map: map,
-                    title: `Válvula ${valvula.nombre || valvula.name}`,
-                    icon: {
-                      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="12" cy="12" r="8" fill="${getValveColor()}" stroke="white" strokeWidth="2"/>
-                          ${valvula.isOpen && valvula.status !== "maintenance" ? '<circle cx="12" cy="12" r="4" fill="white" opacity="0.9"><animate attributeName="opacity" values="0.9;0.3;0.9" dur="1.5s" repeatCount="indefinite"/></circle>' : ""}
-                          ${valvula.status === "maintenance" ? '<path d="M8 8l8 8M16 8l-8 8" stroke="white" strokeWidth="2" strokeLinecap="round"/>' : ""}
-                        </svg>
-                      `)}`,
-                      scaledSize: new window.google.maps.Size(24, 24),
-                      anchor: new window.google.maps.Point(12, 12),
-                    },
-                  })
-
-                  markersRef.current.push(valveMarker)
-
-                  const getValveStatusText = () => {
-                    if (valvula.status === "maintenance") return "🔧 En Mantenimiento"
-                    if (valvula.isOpen) return "🟢 Regando"
-                    return "⚫ Inactiva"
-                  }
-
-                  const valveInfoWindow = new window.google.maps.InfoWindow({
-                    content: `
-                      <div style="padding: 8px; font-family: system-ui;">
-                        <h4 style="margin: 0 0 4px 0; font-weight: bold; color: #1f2937;">${valvula.name}</h4>
-                        <p style="margin: 0; font-size: 12px; color: #6b7280;">Estado: ${getValveStatusText()}</p>
-                        <p style="margin: 0; font-size: 12px; color: #6b7280;">Caudal: ${valvula.caudal || valvula.flowRate || 0} L/min</p>
-                        <p style="margin: 0; font-size: 12px; color: #6b7280;">Presión: ${valvula.presion || 0} bar</p>
-                      </div>
-                    `,
-                  })
-
-                  valveMarker.addListener("click", () => {
-                    valveInfoWindow.open(map, valveMarker)
-                  })
+                loteMarker.addListener("click", () => {
+                  loteInfoWindow.setPosition(validatedCenter)
+                  loteInfoWindow.open(map)
                 })
               }
             }
+
+            // Valves
+            if (lote.valvulas && Array.isArray(lote.valvulas) && lote.valvulas.length > 0) {
+              lote.valvulas.forEach((valvula) => {
+                const vLatRaw = valvula.latitud ?? valvula.coordinates?.lat ?? valvula.lat
+                const vLngRaw = valvula.longitud ?? valvula.coordinates?.lng ?? valvula.lng
+
+                const vLat = typeof vLatRaw === "string" ? Number.parseFloat(vLatRaw) : Number(vLatRaw)
+                const vLng = typeof vLngRaw === "string" ? Number.parseFloat(vLngRaw) : Number(vLngRaw)
+
+                if (!isFinite(vLat) || !isFinite(vLng) || isNaN(vLat) || isNaN(vLng)) {
+                  console.warn("[v0] Invalid valve coordinates:", valvula.name, vLatRaw, vLngRaw)
+                  return
+                }
+
+                const valvePosition = { lat: vLat, lng: vLng }
+
+                const getValveColor = () => {
+                  if (valvula.status === "maintenance") return "#EF4444"
+                  if (valvula.isOpen) return "#3B82F6"
+                  return "#6B7280"
+                }
+
+                const valveMarker = new window.google.maps.Marker({
+                  position: valvePosition,
+                  map,
+                  title: `Válvula ${valvula.nombre || valvula.name}`,
+                  icon: {
+                    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="8" fill="${getValveColor()}" stroke="white" strokeWidth="2"/>
+                        ${valvula.isOpen && valvula.status !== "maintenance" ? '<circle cx="12" cy="12" r="4" fill="white" opacity="0.9"><animate attributeName="opacity" values="0.9;0.3;0.9" dur="1.5s" repeatCount="indefinite"/></circle>' : ""}
+                        ${valvula.status === "maintenance" ? '<path d="M8 8l8 8M16 8l-8 8" stroke="white" strokeWidth="2" strokeLinecap="round"/>' : ""}
+                      </svg>
+                    `)}`,
+                    scaledSize: new window.google.maps.Size(24, 24),
+                    anchor: new window.google.maps.Point(12, 12),
+                  },
+                })
+
+                markersRef.current.push(valveMarker)
+
+                const getValveStatusText = () => {
+                  if (valvula.status === "maintenance") return "🔧 En Mantenimiento"
+                  if (valvula.isOpen) return "🟢 Regando"
+                  return "⚫ Inactiva"
+                }
+
+                const valveInfoWindow = new window.google.maps.InfoWindow({
+                  content: `
+                    <div style="padding: 8px; font-family: system-ui;">
+                      <h4 style="margin: 0 0 4px 0; font-weight: bold; color: #1f2937;">${valvula.name}</h4>
+                      <p style="margin: 0; font-size: 12px; color: #6b7280;">Estado: ${getValveStatusText()}</p>
+                      <p style="margin: 0; font-size: 12px; color: #6b7280;">Caudal: ${valvula.caudal || valvula.flowRate || 0} L/min</p>
+                      <p style="margin: 0; font-size: 12px; color: #6b7280;">Presión: ${valvula.presion || 0} bar</p>
+                    </div>
+                  `,
+                })
+
+                valveMarker.addListener("click", () => {
+                  valveInfoWindow.open(map, valveMarker)
+                })
+              })
+            }
           })
         }
-      } catch (error) {
-        console.warn("[v0] Error creating finca polygons:", error)
-      }
-    })
+      })
+    } catch (error) {
+      console.warn("[v0] Error creating finca polygons:", error)
+    }
   }
 
   const createDirectMarkers = () => {
@@ -580,7 +615,9 @@ export function GoogleMap({
         gmapsScript.remove()
       }
       if (window.initGoogleMap) {
-        delete window.initGoogleMap
+        // Delete the property using a type assertion to avoid optional-chaining on delete
+        // which is not allowed by TypeScript.
+        delete (window as any).initGoogleMap
       }
     }
   }, [])

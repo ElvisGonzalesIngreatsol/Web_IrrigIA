@@ -100,13 +100,13 @@ export const WaterUsageLineChart: React.FC = () => {
   const { valvulas, lotes, fincas } = useData()
   const { user } = useAuth()
 
-  const userFincas = user?.role === "admin" ? fincas : user?.fincaId ? fincas.filter((f) => f.id === user.fincaId) : []
-  const userLotes = user?.role === "admin" ? lotes : lotes.filter((l) => userFincas.some((f) => f.id === l.fincaId))
+  const userFincas = user?.role === "ADMIN" ? fincas : user?.fincaId ? fincas.filter((f) => f.id === user.fincaId) : []
+  const userLotes = user?.role === "ADMIN" ? lotes : lotes.filter((l) => userFincas.some((f) => f.id === l.fincaId))
   const userValvulas =
-    user?.role === "admin" ? valvulas : valvulas.filter((v) => userFincas.some((f) => f.id === v.fincaId))
+    user?.role === "ADMIN" ? valvulas : valvulas.filter((v) => userFincas.some((f) => f.id === v.fincaId))
 
-  const activeValvulas = userValvulas.filter((v) => v.isOpen)
-  const totalDailyConsumption = activeValvulas.reduce((sum, v) => sum + (v.flowRate || 0) * 60 * 24, 0) // L/day
+  const activeValvulas = userValvulas.filter((v) => v.isActive)
+  const totalDailyConsumption = activeValvulas.reduce((sum, v) => sum + (v.caudal || 0) * 60 * 24, 0) // L/day
 
   return (
     <Card className="w-full">
@@ -130,15 +130,15 @@ export const WaterUsageLineChart: React.FC = () => {
                 ) : (
                   activeValvulas.map((valvula) => {
                     const lote = userLotes.find((l) => l.id === valvula.loteId)
-                    const consumoLitros = (valvula.flowRate || 0) * 60 // L/hour
+                    const consumoLitros = (valvula.caudal || 0) * 60 // L/hour
 
                     return (
                       <div key={valvula.id} className="bg-white rounded p-2 border border-blue-200">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-medium truncate">{valvula.name}</span>
+                          <span className="text-xs font-medium truncate">{valvula.nombre}</span>
                           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                         </div>
-                        <div className="text-xs text-gray-600 mb-1">{lote?.name}</div>
+                        <div className="text-xs text-gray-600 mb-1">{lote?.nombre}</div>
                         <div className="text-sm font-bold text-blue-600">{consumoLitros.toFixed(0)} L/h</div>
                       </div>
                     )
@@ -232,13 +232,13 @@ export const WaterUsageLineChart: React.FC = () => {
                   return (
                     <div key={valvula.id} className="flex items-center justify-between p-2 bg-white rounded border">
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium truncate">{valvula.name}</div>
+                        <div className="text-xs font-medium truncate">{valvula.nombre}</div>
                         <div className="text-xs text-gray-500">
-                          {lote?.name} - {finca?.name}
+                          {lote?.nombre} - {finca?.nombre}
                         </div>
                       </div>
                       <Badge variant="outline" className="text-xs">
-                        {((valvula.flowRate || 0) * 60).toFixed(0)} L/h
+                        {((valvula.caudal || 0) * 60).toFixed(0)} L/h
                       </Badge>
                     </div>
                   )

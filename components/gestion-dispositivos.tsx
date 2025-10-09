@@ -38,10 +38,12 @@ export function GestionDispositivos() {
         deviceEui: "",
         nombre: "",
         descripcion: "",
-        lat: 0.0,
-        lng: 0.0,
+        lat: "",
+        lng: "",
         isActive: false,
         fincaId: "",
+        joinEui: "",
+        deviceProfile: "",
     })
 
     // NUEVO: Estado para fincas
@@ -55,10 +57,12 @@ export function GestionDispositivos() {
             deviceEui: "",
             nombre: "",
             descripcion: "",
-            lat: 0.0,
-            lng: 0.0,
+            lat: "",
+            lng: "",
             isActive: false,
             fincaId: "",
+            joinEui: "",
+            deviceProfile: "",
         })
         setEditingDevice(null)
     }
@@ -89,8 +93,12 @@ export function GestionDispositivos() {
             setFincasError(null)
             apiService.getAllFincasFromTodas()
                 .then((response) => {
-                    if (response && response.success && Array.isArray(response.data.data)) {
-                        setFincas(response.data.data)
+                    // Normalize response: it might be an array already or an object with nested data
+                    const data = Array.isArray(response)
+                        ? response
+                        : ((response as any)?.data?.data ?? (response as any)?.data ?? [])
+                    if (Array.isArray(data) && (Array.isArray(response) || (response && (response as any).success))) {
+                        setFincas(data)
                     } else {
                         setFincas([])
                         setFincasError("No se pudieron cargar las fincas")
@@ -114,24 +122,53 @@ export function GestionDispositivos() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         try {
-            // Prepara los datos para enviar
             const payload = {
                 deviceEui: formData.deviceEui,
                 nombre: formData.nombre,
-                descripcion: formData.descripcion,
-                lat: formData.lat ? parseFloat(formData.lat.toString()) : null,
-                lng: formData.lng ? parseFloat(formData.lng.toString()) : null,
+                descripcion: formData.descripcion || null,
+                lat:
+                    formData.lat !== null && formData.lat !== undefined && formData.lat !== ""
+                        ? parseFloat(String(formData.lat))
+                        : null,
+                lng:
+                    formData.lng !== null && formData.lng !== undefined && formData.lng !== ""
+                        ? parseFloat(String(formData.lng))
+                        : null,
                 isActive: formData.isActive,
                 fincaId: formData.fincaId ? Number(formData.fincaId) : null,
+                // Fields required by apiService.updateDevice
+                joinEui: formData.joinEui,
+                deviceProfile: formData.deviceProfile,
+                // API expects isDisabled, derive from isActive
+                isDisabled: !formData.isActive,
             }
+
             let response
             if (editingDevice) {
-                response = await apiService.updateDevice?.(editingDevice, payload)
+                const updatePayload = {
+                    nombre: payload.nombre,
+                    descripcion: payload.descripcion === null ? undefined : payload.descripcion,
+                    deviceEui: payload.deviceEui,
+                    joinEui: payload.joinEui,
+                    deviceProfile: payload.deviceProfile,
+                    isDisabled: payload.isDisabled,
+                }
+                response = await apiService.updateDevice?.(editingDevice, updatePayload)
             } else {
-                response = await apiService.createDevice?.(payload)
+                // Crear un payload que respete la firma esperada por createDevice
+                const createPayload = {
+                    nombre: payload.nombre,
+                    descripcion: payload.descripcion === null ? undefined : payload.descripcion,
+                    deviceEui: payload.deviceEui,
+                    joinEui: payload.joinEui,
+                    deviceProfile: payload.deviceProfile,
+                    isDisabled: payload.isDisabled,
+                }
+                response = await apiService.createDevice?.(createPayload)
             }
+
             if (response && response.success) {
-                Swal.fire({
+                await Swal.fire({
                     title: editingDevice ? "Dispositivo actualizado" : "Dispositivo creado",
                     icon: "success",
                     confirmButtonColor: "#1C352D",
@@ -140,7 +177,7 @@ export function GestionDispositivos() {
                 resetForm()
                 fetchDevices()
             } else {
-                Swal.fire({
+                await Swal.fire({
                     title: "Error",
                     text: response?.error || "No se pudo guardar el dispositivo",
                     icon: "error",
@@ -148,15 +185,14 @@ export function GestionDispositivos() {
                 })
             }
         } catch (err: any) {
-            Swal.fire({
+            await Swal.fire({
                 title: "Error",
-                text: err?.message || "No se pudo guardar el dispositivo",
+                text: err?.message || "Ocurrió un error al guardar el dispositivo",
                 icon: "error",
                 confirmButtonColor: "#1C352D",
             })
         }
     }
-
     const handleEdit = (device: Device) => {
         setFormData({
             nombre: device.nombre,
@@ -166,6 +202,8 @@ export function GestionDispositivos() {
             lng: device.lng !== undefined && device.lng !== null ? String(device.lng) : "",
             isActive: !!device.isActive,
             fincaId: device.fincaid ? String(device.fincaid) : "",
+            joinEui: device.joinEui || "",
+            deviceProfile: device.deviceProfile || "",
         })
         setEditingDevice(device.id)
         setIsDialogOpen(true)

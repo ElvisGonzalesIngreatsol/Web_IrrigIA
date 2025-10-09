@@ -59,9 +59,15 @@ export function FincasManagement() {
       setLoading(true)
       setError(null)
       console.log("[v0] Fetching fincas from backend...")
-      const fincasData = await apiService.getFincas()
-      setFincas(Array.isArray(fincasData.data) ? fincasData.data : [])
-      console.log("[v0] Fincas loaded successfully:", Array.isArray(fincasData) ? fincasData.length : 0)
+      const result = await apiService.getFincas()
+      // Normalize response: support both an array response or an object with a `data` array
+      const fincasArray = Array.isArray(result)
+        ? result
+        : Array.isArray((result as any)?.data)
+        ? (result as any).data
+        : []
+      setFincas(fincasArray)
+      console.log("[v0] Fincas loaded successfully:", fincasArray.length)
     } catch (err) {
       console.error("[v0] Error fetching fincas:", err)
       setFincas([])
@@ -117,14 +123,18 @@ export function FincasManagement() {
     setSubmitting(true)
     try {
       const calculatedArea = calculatePolygonArea(formData.coordinates)
-      const fincaData = {
-        ...formData,
+      const payload = {
+        name: formData.nombre,
+        location: formData.location,
         area: calculatedArea,
+        coordinates: formData.coordinates,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
       }
 
       if (editingFinca) {
         console.log("[v0] Updating finca:", editingFinca.id)
-        const updatedFinca = await apiService.updateFinca(editingFinca.id, fincaData)
+        const updatedFinca = await apiService.updateFinca(editingFinca.id, payload)
         setFincas((prev) => prev.map((f) => (f.id === editingFinca.id ? updatedFinca : f)))
         addNotification({
           type: "success",
@@ -133,7 +143,7 @@ export function FincasManagement() {
         })
       } else {
         console.log("[v0] Creating new finca")
-        const newFinca = await apiService.createFinca(fincaData)
+        const newFinca = await apiService.createFinca(payload)
         setFincas((prev) => [newFinca, ...prev])
         addNotification({
           type: "success",
@@ -194,7 +204,7 @@ export function FincasManagement() {
     const fincaCoordinates = finca.coordinates || finca.coordinates || []
     setFormData({
       nombre: finca.nombre,
-      location: finca.location,
+      location: finca.location ?? "",
       area: finca.area,
       latitude: finca.latitude,
       longitude: finca.longitude,
@@ -219,7 +229,6 @@ export function FincasManagement() {
         customClass: {
           popup: "rounded-lg",
           title: "text-lg font-semibold",
-          content: "text-sm",
         },
       })
 
@@ -259,7 +268,7 @@ export function FincasManagement() {
 
     const totalValvulas = finca.lotes.reduce((sum, lote) => sum + (lote.valvulas?.length || 0), 0)
     const activeValvulas = finca.lotes.reduce(
-      (sum, lote) => sum + (lote.valvulas?.filter((v) => v.isOpen)?.length || 0),
+      (sum, lote) => sum + (lote.valvulas?.filter((v) => (v as any).isOpen)?.length || 0),
       0,
     )
 
@@ -276,19 +285,18 @@ export function FincasManagement() {
   }
 
   const buildFincaWithLotes = (finca: Finca) => {
-    const fincaLotes = fincas.find((f) => f.id === finca.id)?.lotes || []
+    const fincaObj = fincas.find((f) => f.id === finca.id)
+    const fincaLotes = fincaObj?.lotes || []
     const fincaValvulas =
-      fincas.find((f) => f.id === finca.id) ||
-      []?.lotes.reduce((acc, lote) => {
+      (fincaObj?.lotes ?? []).reduce((acc, lote) => {
         return [...acc, ...(lote.valvulas || [])]
-      }, []) ||
-      []
+      }, [] as any[]) || []
 
     return {
       ...finca,
       lotes: fincaLotes.map((lote) => ({
         ...lote,
-        valvulas: fincaValvulas?.filter((v) => v.loteId === lote.id),
+        valvulas: fincaValvulas.filter((v) => v.loteId === lote.id),
       })),
     }
   }
@@ -781,24 +789,35 @@ export function FincasManagement() {
                 </div>
               </div>
 
-              <div className="h-[500px] rounded-lg overflow-hidden border">
+                <div className="h-[500px] rounded-lg overflow-hidden border">
                 <GoogleMap
                   center={{
-                    lat: viewingFinca.latitude || 4.711,
-                    lng: viewingFinca.longitude || -74.0721,
+                  lat: viewingFinca.latitude || 4.711,
+                  lng: viewingFinca.longitude || -74.0721,
                   }}
                   zoom={16}
                   showSatellite={true}
                   height="500px"
                   fincas={[
-                    {
-                      ...viewingFinca,
-                      coordinates: viewingFinca.coordinates || viewingFinca.coordinate || [],
-                      lotes: viewingFinca.lotes || [],
-                    },
+                  {
+                    // Normalize IDs to strings to avoid TS type mismatch (backend may return numbers)
+                    ...viewingFinca,
+                    id: String(viewingFinca.id),
+                    coordinates: viewingFinca.coordinates || [],
+                    lotes: (viewingFinca.lotes || []).map((lote) => ({
+                    ...lote,
+                    id: String((lote as any).id),
+                    // ensure valvulas ids/loteId are strings too
+                    valvulas: (lote.valvulas || []).map((v) => ({
+                      ...v,
+                      id: String((v as any).id),
+                      loteId: String((v as any).loteId),
+                    })),
+                    })),
+                  },
                   ]}
                 />
-              </div>
+                </div>
 
               <div className="flex justify-end">
                 <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>

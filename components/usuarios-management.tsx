@@ -182,16 +182,32 @@ export function UsuariosManagement() {
         console.log("[v0] Fincas fetched successfully:", response.data)
 
         // Handle different possible response structures
-        const fincasData = response.data.data || response.data
+        const fincasData = Array.isArray(response.data)
+          ? response.data
+          : (response.data && Array.isArray((response.data as any).data))
+            ? (response.data as any).data
+            : response.data
         const mappedFincas = Array.isArray(fincasData)
           ? fincasData.map((finca: any) => ({
               id: finca.id || Math.floor(Math.random() * 1000000),
               name: finca.name || finca.nombre || "Sin nombre",
+              nombre: finca.nombre || finca.name || "Sin nombre",
               location: finca.location || finca.ubicacion || "Ubicación no especificada",
               area: finca.area || 0,
               coordinates: finca.coordinates || finca.coordinate || [],
-              createdAt: finca.createdAt ? new Date(finca.createdAt) : new Date(),
-              updatedAt: finca.updatedAt ? new Date(finca.updatedAt) : new Date(),
+              latitude: finca.latitude ?? (Array.isArray(finca.coordinates) && finca.coordinates[0] ? finca.coordinates[0] : 0),
+              longitude: finca.longitude ?? (Array.isArray(finca.coordinates) && finca.coordinates[1] ? finca.coordinates[1] : 0),
+              status: finca.status ?? "activo",
+              createdAt: finca.createdAt
+                ? typeof finca.createdAt === "string"
+                  ? finca.createdAt
+                  : new Date(finca.createdAt).toISOString()
+                : new Date().toISOString(),
+              updatedAt: finca.updatedAt
+                ? typeof finca.updatedAt === "string"
+                  ? finca.updatedAt
+                  : new Date(finca.updatedAt).toISOString()
+                : new Date().toISOString(),
             }))
           : []
 
@@ -229,7 +245,7 @@ export function UsuariosManagement() {
               email: user.email || "",
               password: user.password || "••••••••",
               phone: user.phone || user.telefono || "",
-              role: (user.role || user.rol) === "ADMIN" ? "ADMIN" : "USER",
+              role: ((user.role || user.rol) === "ADMIN" ? "ADMIN" : "USER") as "ADMIN" | "USER",
               fincaId: user.fincaId || user.finca_id || "",
               isActive: user.isActive !== undefined ? user.isActive : true,
               avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name || user.nombre}`,
@@ -287,9 +303,13 @@ export function UsuariosManagement() {
       console.log("[v0] Submitting user data:", formData)
 
       const payload = {
-        ...formData,
-        role: formData.role as "ADMIN" | "USER",
-        fincaId: formData.fincaId && formData.fincaId !== "" ? Number(formData.fincaId) : null,
+        nombre: formData.name,
+        email: formData.email,
+        password: formData.password,
+        telefono: formData.phone,
+        rol: formData.role as "ADMIN" | "USER",
+        fincaId: formData.fincaId && formData.fincaId !== "" ? Number(formData.fincaId) : undefined,
+        isActive: formData.isActive,
       }
 
       if (editingUser) {
@@ -345,8 +365,8 @@ export function UsuariosManagement() {
     setFormData({
       name: user.name,
       email: user.email,
-      password: user.password,
-      phone: user.phone,
+      password: user.password ?? "••••••••",
+      phone: user.phone ?? "",
       role: user.role,
       fincaId: user.fincaId ? user.fincaId.toString() : "",
       isActive: user.isActive,
@@ -392,7 +412,7 @@ export function UsuariosManagement() {
   const getFincaName = (fincaId?: string | number) => {
     if (!fincaId) return "Sin asignar"
     const finca = fincas.find((f) => f.id.toString() === fincaId.toString())
-    return finca ? `${finca.name} - ${finca.location}` : "Finca no encontrada"
+    return finca ? `${finca.nombre} - ${finca.location}` : "Finca no encontrada"
   }
 
   const handleResetPassword = async (userId: number) => {
@@ -620,7 +640,7 @@ export function UsuariosManagement() {
                       <SelectItem value="none">Sin asignar</SelectItem>
                       {fincas.map((finca) => (
                         <SelectItem key={finca.id} value={finca.id.toString()}>
-                          {finca.name} - {finca.location}
+                          {finca.nombre} - {finca.location}
                         </SelectItem>
                       ))}
                       {!fincasLoading && fincas.length === 0 && (

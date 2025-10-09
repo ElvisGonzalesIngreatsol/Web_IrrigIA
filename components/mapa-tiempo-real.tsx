@@ -20,7 +20,7 @@ export function MapaTiempoReal() {
   const [mapZoom, setMapZoom] = useState(10)
 
   const userFincas = useMemo(() => {
-    if (user?.role === "admin") {
+    if (user?.role === "ADMIN") {
       return fincas
     }
     return fincas.filter((finca) => user?.fincaId === finca.id || user?.fincaIds?.includes(finca.id))
@@ -28,13 +28,14 @@ export function MapaTiempoReal() {
 
   // Memoizar la lógica de selección automática para evitar loops
   const autoSelectFinca = useCallback(() => {
-    if (user?.role === "client" && userFincas.length > 0 && !selectedFinca) {
+    if (user?.role === "USER" && userFincas.length > 0 && !selectedFinca) {
       // Si el cliente solo tiene una finca, seleccionarla automáticamente
       if (userFincas.length === 1) {
         const finca = userFincas[0]
-        setSelectedFinca(finca.id)
-        if (finca.mapCoordinates) {
-          setMapCenter({ lat: finca.mapCoordinates.lat, lng: finca.mapCoordinates.lng })
+        setSelectedFinca(String(finca.id))
+        // Usar latitude/longitude del tipo Finca
+        if (typeof finca.latitude === "number" && typeof finca.longitude === "number") {
+          setMapCenter({ lat: finca.latitude, lng: finca.longitude })
           setMapZoom(16)
         }
       }
@@ -54,22 +55,21 @@ export function MapaTiempoReal() {
       type: "success",
       title: "Mapa Actualizado",
       message: "Los datos del mapa han sido actualizados",
-      autoClose: true,
       duration: 3000,
     })
   }
 
   const handleFocusOnFinca = (finca: any) => {
-    if (finca.mapCoordinates) {
-      setMapCenter({ lat: finca.mapCoordinates.lat, lng: finca.mapCoordinates.lng })
+    // Usar latitude/longitude del tipo Finca
+    if (typeof finca.latitude === "number" && typeof finca.longitude === "number") {
+      setMapCenter({ lat: finca.latitude, lng: finca.longitude })
       setMapZoom(16)
-      setSelectedFinca(finca.id)
+      setSelectedFinca(String(finca.id))
 
       addNotification({
         type: "info",
         title: "Ubicación Encontrada",
-        message: `Mostrando ubicación de ${finca.name}`,
-        autoClose: true,
+        message: `Mostrando ubicación de ${finca.nombre}`,
         duration: 2000,
       })
     }
@@ -118,7 +118,7 @@ export function MapaTiempoReal() {
             Mapa en Tiempo Real
           </h1>
           <p className="text-muted-foreground leading-relaxed">
-            {user?.role === "admin"
+            {user?.role === "ADMIN"
               ? "Visualización geográfica de sensores y válvulas en tiempo real"
               : `Monitoreo de ${userFincas.length === 1 ? "tu finca" : "tus fincas"} en tiempo real`}
           </p>
@@ -140,30 +140,35 @@ export function MapaTiempoReal() {
         </div>
       </div>
 
-      {(user?.role === "admin" || userFincas.length > 1) && (
+      {(user?.role === "ADMIN" || userFincas.length > 1) && (
         <Card className="p-1">
           <CardHeader className="px-6 py-5">
             <CardTitle className="leading-tight">
-              {user?.role === "admin" ? "Seleccionar Finca" : "Tus Fincas"}
+              {user?.role === "ADMIN" ? "Seleccionar Finca" : "Tus Fincas"}
             </CardTitle>
             <CardDescription className="leading-relaxed mt-2">
-              {user?.role === "admin"
+              {user?.role === "ADMIN"
                 ? "Haz clic en el ojo para ubicar la finca en el mapa"
                 : "Haz clic en el ojo para ubicar tu finca en el mapa"}
             </CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-3">
               {userFincas.map((finca) => (
                 <div key={finca.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
                     <MapPin className="h-4 w-4 text-green-600" />
                     <div>
-                      <p className="font-medium text-sm leading-none">{finca.name}</p>
+                      <p className="font-medium text-sm leading-none">{finca.nombre}</p>
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{finca.location}</p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => handleFocusOnFinca(finca)} className="h-9 w-9 p-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleFocusOnFinca(finca)}
+                    className="h-9 w-9 p-0"
+                  >
                     <Eye className="h-4 w-4" />
                   </Button>
                 </div>
@@ -173,7 +178,7 @@ export function MapaTiempoReal() {
         </Card>
       )}
 
-      {user?.role === "client" && userFincas.length === 1 && (
+      {user?.role === "USER" && userFincas.length === 1 && (
         <Card className="p-1">
           <CardHeader className="px-6 py-5">
             <CardTitle className="leading-tight">Tu Finca</CardTitle>
@@ -184,7 +189,7 @@ export function MapaTiempoReal() {
               <div className="flex items-center gap-4">
                 <MapPin className="h-5 w-5 text-green-600" />
                 <div>
-                  <p className="font-semibold text-green-800 leading-none">{userFincas[0].name}</p>
+                  <p className="font-semibold text-green-800 leading-none">{userFincas[0].nombre}</p>
                   <p className="text-sm text-green-600 mt-1 leading-relaxed">{userFincas[0].location}</p>
                   <p className="text-xs text-green-500 mt-1 leading-relaxed">
                     {userFincas[0].area} Ha • {userFincas[0].lotes?.length || 0} Lotes
@@ -203,7 +208,7 @@ export function MapaTiempoReal() {
         <CardHeader className="px-6 py-5">
           <CardTitle className="leading-tight">Vista del Mapa</CardTitle>
           <CardDescription className="leading-relaxed mt-2">
-            {user?.role === "admin"
+            {user?.role === "ADMIN"
               ? "Mapa interactivo con ubicaciones reales de fincas, sensores y válvulas"
               : "Mapa interactivo de tu finca con sensores y válvulas"}
           </CardDescription>
@@ -213,31 +218,40 @@ export function MapaTiempoReal() {
             <GoogleMap
               center={mapCenter}
               zoom={mapZoom}
-              fincas={userFincas}
+              fincas={userFincas.map((f) => ({
+                ...f,
+                id: String(f.id),
+                lotes: f.lotes?.map((l) => ({
+                  ...l,
+                  id: String(l.id),
+                  valvulas: l.valvulas?.map((v: any) => ({ ...v, id: String(v.id) })) ?? undefined,
+                  sensors: l.sensors?.map((s: any) => ({ ...s, id: String(s.id) })) ?? undefined,
+                })),
+              }))}
               selectedFinca={selectedFinca}
-              onFincaSelect={setSelectedFinca}
+              onFincaSelect={(id: any) => setSelectedFinca(id != null ? String(id) : null)}
             />
           </div>
         </CardContent>
       </Card>
 
-      {(user?.role === "admin" || userFincas.length > 1) && (
+      {(user?.role === "ADMIN" || userFincas.length > 1) && (
         <div className="flex flex-wrap gap-3">
           <Button
             variant={selectedFinca === null ? "default" : "outline"}
             onClick={() => setSelectedFinca(null)}
             className="px-4 py-2"
           >
-            {user?.role === "admin" ? "Todas las Fincas" : "Todas mis Fincas"}
+            Todas
           </Button>
           {userFincas.map((finca) => (
             <Button
               key={finca.id}
-              variant={selectedFinca === finca.id ? "default" : "outline"}
-              onClick={() => setSelectedFinca(finca.id)}
+              variant={selectedFinca === String(finca.id) ? "default" : "outline"}
+              onClick={() => setSelectedFinca(String(finca.id))}
               className="px-4 py-2"
             >
-              {finca.name}
+              {finca.nombre}
             </Button>
           ))}
         </div>
@@ -253,7 +267,7 @@ export function MapaTiempoReal() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm leading-relaxed">
-                  {user?.role === "admin" ? "Total de Fincas:" : "Mis Fincas:"}
+                  {user?.role === "ADMIN" ? "Total de Fincas:" : "Mis Fincas:"}
                 </span>
                 <Badge variant="outline" className="px-3 py-1">
                   {userFincas.length}
@@ -272,7 +286,7 @@ export function MapaTiempoReal() {
                     (acc, f) =>
                       acc +
                       (f.lotes?.reduce(
-                        (lAcc, l) => lAcc + (l.valvulas?.filter((v) => v.status === "open").length || 0),
+                        (lAcc, l) => lAcc + (l.valvulas?.filter((v: any) => v.status === "open").length || 0),
                         0,
                       ) || 0),
                     0,
@@ -286,7 +300,7 @@ export function MapaTiempoReal() {
                     (acc, f) =>
                       acc +
                       (f.lotes?.reduce(
-                        (lAcc, l) => lAcc + (l.sensors?.filter((s) => s.status === "active").length || 0),
+                        (lAcc, l) => lAcc + (l.sensors?.filter((s: any) => s.status === "active").length || 0),
                         0,
                       ) || 0),
                     0,
@@ -304,11 +318,10 @@ export function MapaTiempoReal() {
           <CardContent className="px-6 pb-6">
             <div className="space-y-4">
               <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
                 <div>
                   <p className="text-sm font-medium leading-none">Sensor pH Fuera de Rango</p>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    {userFincas.length > 0 ? `Lote C - ${userFincas[0].name}` : "Lote C"}
+                    {userFincas.length > 0 ? `Lote C - ${userFincas[0].nombre}` : "Lote C"}
                   </p>
                 </div>
               </div>

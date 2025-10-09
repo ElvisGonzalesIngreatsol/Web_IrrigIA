@@ -20,15 +20,15 @@ export function MonitoreoAvanzado() {
   const [polygons, setPolygons] = useState<any[]>([])
 
   // Filtrar datos por finca seleccionada - memoized
-  const selectedFinca = useMemo(() => fincas.find((f) => f.id === selectedFincaId), [fincas, selectedFincaId])
+  const selectedFinca = useMemo(() => fincas.find((f) => String(f.id) === selectedFincaId), [fincas, selectedFincaId])
 
   const fincaLotes = useMemo(
-    () => (selectedFincaId ? lotes.filter((l) => l.fincaId === selectedFincaId) : []),
+    () => (selectedFincaId ? lotes.filter((l) => l.fincaId.toString() === selectedFincaId.toString()) : []),
     [lotes, selectedFincaId],
   )
 
   const fincaValvulas = useMemo(
-    () => (selectedFincaId ? valvulas.filter((v) => v.fincaId === selectedFincaId) : []),
+    () => (selectedFincaId ? valvulas.filter((v) => v.fincaId.toString() === selectedFincaId.toString()) : []),
     [valvulas, selectedFincaId],
   )
 
@@ -77,8 +77,8 @@ export function MonitoreoAvanzado() {
 
     try {
       // Center map on finca
-      map.setCenter(selectedFinca.mapCoordinates)
-      map.setZoom(selectedFinca.mapCoordinates.zoom)
+      map.setCenter({ lat: selectedFinca.latitude, lng: selectedFinca.longitude })
+      map.setZoom(16)
 
       if (selectedFinca.coordinates && selectedFinca.coordinates.length > 0) {
         const fincaPolygon = new window.google.maps.Polygon({
@@ -116,7 +116,7 @@ export function MonitoreoAvanzado() {
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8), 1px -1px 2px rgba(0,0,0,0.8), -1px 1px 2px rgba(0,0,0,0.8);
             font-size: ${Math.max(12, Math.min(18, map.getZoom() * 1.2))}px;
             pointer-events: none;
-          ">${lote.name}</div>`,
+          ">${lote.nombre}</div>`,
           position: lote.centerCoordinates,
           disableAutoPan: true,
         })
@@ -135,13 +135,13 @@ export function MonitoreoAvanzado() {
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8), 1px -1px 2px rgba(0,0,0,0.8), -1px 1px 2px rgba(0,0,0,0.8);
             font-size: ${newSize}px;
             pointer-events: none;
-          ">${lote.name}</div>`)
+          ">${lote.nombre}</div>`)
         })
 
         polygon.addListener("click", () => {
           try {
             const infoWindow = new window.google.maps.InfoWindow({
-              content: `<div class="p-2"><strong>${lote.name}</strong><br/>Área: ${lote.area} Ha<br/>Cultivo: ${lote.cultivo}</div>`,
+              content: `<div class="p-2"><strong>${lote.nombre}</strong><br/>Área: ${lote.area} Ha</div>`,
               position: lote.centerCoordinates,
             })
             infoWindow.open(map)
@@ -155,12 +155,12 @@ export function MonitoreoAvanzado() {
 
       const newMarkers = fincaValvulas.map((valvula) => {
         const getMarkerColor = () => {
-          if (valvula.status === "maintenance") return "#ef4444" // red
-          if (valvula.isOpen) return "#3b82f6" // blue
+          if (valvula.estado === "maintenance") return "#ef4444" // red
+          if (valvula.isActive) return "#3b82f6" // blue
           return "#6b7280" // gray
         }
 
-        const markerIcon = valvula.isOpen
+        const markerIcon = valvula.isActive
           ? {
               path: "M-8,-8 L8,-8 L8,8 L-8,8 Z M-12,-12 L12,-12 M-12,12 L12,12 M-12,-6 L12,-6 M-12,0 L12,0 M-12,6 L12,6",
               fillColor: getMarkerColor(),
@@ -180,13 +180,15 @@ export function MonitoreoAvanzado() {
             }
 
         const marker = new window.google.maps.Marker({
-          position: valvula.coordinates,
+          position: valvula.lat && valvula.lng
+            ? { lat: valvula.lat, lng: valvula.lng }
+            : undefined,
           map: map,
-          title: valvula.name,
+          title: valvula.nombre,
           icon: markerIcon,
         })
 
-        if (valvula.isOpen) {
+        if (valvula.isActive) {
           let scale = 1
           let growing = true
           const animationInterval = setInterval(() => {
@@ -211,11 +213,17 @@ export function MonitoreoAvanzado() {
         const infoWindow = new window.google.maps.InfoWindow({
           content: `
             <div class="p-3">
-              <h3 class="font-semibold">${valvula.name}</h3>
+              <h3 class="font-semibold">${valvula.nombre}</h3>
               <p class="text-sm text-gray-600">Device: ${valvula.deviceId}</p>
-              <p class="text-sm">Estado: ${valvula.status === "maintenance" ? "Mantenimiento" : valvula.isOpen ? "🚿 Regando" : "⏸️ Detenida"}</p>
-              <p class="text-sm">Flujo: ${valvula.flowRate.toFixed(1)} L/min</p>
-              <p class="text-xs text-gray-500">Última actividad: ${valvula.lastActivity.toLocaleTimeString()}</p>
+              <p class="text-sm">Estado: ${valvula.estado === "maintenance" ? "Mantenimiento" : valvula.isActive ? "🚿 Regando" : "⏸️ Detenida"}</p>
+              <p class="text-sm">Flujo: ${typeof valvula.caudal === "number" ? valvula.caudal.toFixed(1) : "N/A"} L/min</p>
+              <p class="text-xs text-gray-500">
+                Última actividad: ${
+                  valvula.updatedAt
+                    ? new Date(valvula.updatedAt).toLocaleTimeString()
+                    : "No disponible"
+                }
+              </p>
             </div>
           `,
         })
@@ -248,9 +256,17 @@ export function MonitoreoAvanzado() {
     }
   }, [map, selectedFinca, fincaLotes, fincaValvulas])
 
-  const activeValvulas = fincaValvulas.filter((v) => v.isOpen)
-  const totalFlow = activeValvulas.reduce((sum, v) => sum + v.flowRate, 0)
-  const maintenanceValvulas = fincaValvulas.filter((v) => v.status === "maintenance")
+  const activeValvulas = fincaValvulas.filter((v) => v.isActive)
+  const totalFlow = activeValvulas.reduce((sum, v) => sum + (v.caudal ?? 0), 0)
+  // Filtrar válvulas en mantenimiento usando la propiedad 'estado'
+  const maintenanceValvulas = fincaValvulas.filter((v) => v.estado === "maintenance")
+
+  // Si necesitas agregar la propiedad 'estado' al tipo Valvula, hazlo en el archivo de definición de tipos:
+  // interface Valvula {
+  //   ...
+  //   estado?: string;
+  //   ...
+  // }
 
   return (
     <div className="space-y-8 p-6">
@@ -290,12 +306,12 @@ export function MonitoreoAvanzado() {
             <SelectContent>
               {fincas.map((finca) => {
                 const fincaValvulasCount = valvulas.filter((v) => v.fincaId === finca.id).length
-                const activeFincaValvulas = valvulas.filter((v) => v.fincaId === finca.id && v.isOpen).length
+                const activeFincaValvulas = valvulas.filter((v) => v.fincaId === finca.id && v.isActive).length
 
                 return (
-                  <SelectItem key={finca.id} value={finca.id} className="py-3">
+                  <SelectItem key={finca.id} value={String(finca.id)} className="py-3">
                     <div className="flex items-center justify-between w-full">
-                      <span className="leading-none">{finca.name}</span>
+                      <span className="leading-none">{finca.nombre}</span>
                       <div className="flex items-center gap-3 ml-6">
                         <Badge variant="outline" className="text-xs px-2 py-1">
                           {fincaValvulasCount} válvulas
@@ -371,7 +387,7 @@ export function MonitoreoAvanzado() {
             <div className="lg:col-span-2">
               <Card className="p-1">
                 <CardHeader className="px-6 py-5">
-                  <CardTitle className="leading-tight">Mapa de {selectedFinca.name}</CardTitle>
+                  <CardTitle className="leading-tight">Mapa de {selectedFinca.nombre}</CardTitle>
                   <CardDescription className="leading-relaxed mt-2">
                     {selectedFinca.location} - Vista satelital con lotes y válvulas
                   </CardDescription>
@@ -379,8 +395,8 @@ export function MonitoreoAvanzado() {
                 <CardContent className="px-6 pb-6">
                   <div className="rounded-lg overflow-hidden border">
                     <GoogleMap
-                      center={selectedFinca.mapCoordinates}
-                      zoom={selectedFinca.mapCoordinates.zoom}
+                      center={{ lat: selectedFinca.latitude, lng: selectedFinca.longitude }}
+                      zoom={16}
                       height="500px"
                       onMapLoad={handleMapLoad}
                     />
@@ -423,7 +439,7 @@ export function MonitoreoAvanzado() {
                   <div className="space-y-4">
                     <div>
                       <p className="text-sm font-medium leading-none mb-1">Nombre:</p>
-                      <p className="text-sm text-muted-foreground leading-relaxed">{selectedFinca.name}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{selectedFinca.nombre}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium leading-none mb-1">Ubicación:</p>
@@ -436,7 +452,9 @@ export function MonitoreoAvanzado() {
                     <div>
                       <p className="text-sm font-medium leading-none mb-1">Coordenadas:</p>
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        {selectedFinca.mapCoordinates.lat.toFixed(4)}, {selectedFinca.mapCoordinates.lng.toFixed(4)}
+                        {typeof selectedFinca?.latitude === "number" && typeof selectedFinca?.longitude === "number"
+                          ? `${selectedFinca.latitude.toFixed(4)}, ${selectedFinca.longitude.toFixed(4)}`
+                          : "Coordenadas no disponibles"}
                       </p>
                     </div>
                   </div>
@@ -462,14 +480,16 @@ export function MonitoreoAvanzado() {
                           <div
                             key={valvula.id}
                             className="flex items-center justify-between p-2 bg-blue-50 rounded cursor-pointer hover:bg-blue-100"
-                            onClick={() => setSelectedValvula(valvula.id)}
+                            onClick={() => setSelectedValvula(String(valvula.id))}
                           >
                             <div>
-                              <p className="text-sm font-medium">{valvula.name}</p>
-                              <p className="text-xs text-muted-foreground">{lote?.name}</p>
+                              <p className="text-sm font-medium">{valvula.nombre}</p>
+                              <p className="text-xs text-muted-foreground">{lote?.nombre}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm font-medium text-blue-600">{valvula.flowRate.toFixed(1)} L/min</p>
+                              <p className="text-sm font-medium text-blue-600">
+                                {typeof valvula.caudal === "number" ? valvula.caudal.toFixed(1) : "N/A"} L/min
+                              </p>
                               <div className="flex items-center gap-1">
                                 <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                                 <span className="text-xs text-blue-600">Activa</span>
@@ -500,7 +520,7 @@ export function MonitoreoAvanzado() {
                         <div key={valvula.id} className="flex items-center gap-2 p-2 bg-orange-50 rounded">
                           <AlertTriangle className="w-4 h-4 text-orange-500" />
                           <div>
-                            <p className="text-sm font-medium">{valvula.name}</p>
+                            <p className="text-sm font-medium">{valvula.nombre}</p>
                             <p className="text-xs text-orange-600">Requiere mantenimiento</p>
                           </div>
                         </div>

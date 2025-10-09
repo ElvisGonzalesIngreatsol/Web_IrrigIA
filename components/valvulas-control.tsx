@@ -1,5 +1,12 @@
 "use client"
 
+// Extiende la interfaz Window para incluir valvulaTimersGlobal
+declare global {
+  interface Window {
+    valvulaTimersGlobal?: { [id: number]: number }
+  }
+}
+
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useNotifications } from "./notification-system"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,13 +44,25 @@ export function ValvulasControl() {
       ])
 
       if (fincasResponse.success && valvulasResponse.success) {
-        setFincas(fincasResponse.data.data || [])
-        setValvulas(valvulasResponse.data.data || [])
-        if (selectedFincaId === "all" && fincasResponse.data && fincasResponse.data.length > 0) {
-          setSelectedFincaId(fincasResponse.data[0].id.toString())
+        console.log("Respuesta fincasResponse:", fincasResponse);
+        let fincasArr = [];
+        if (Array.isArray(fincasResponse.data)) {
+          fincasArr = fincasResponse.data;
+        } else if (
+          fincasResponse.data &&
+          typeof fincasResponse.data === "object" &&
+          "data" in fincasResponse.data &&
+          Array.isArray((fincasResponse.data as any).data)
+        ) {
+          fincasArr = (fincasResponse.data as any).data;
+        }
+        setFincas(fincasArr);
+        setValvulas(valvulasResponse.data.data || []);
+        if (selectedFincaId === "all" && fincasArr.length > 0) {
+          setSelectedFincaId(fincasArr[0].id.toString());
         }
       } else {
-        setError(fincasResponse.error || valvulasResponse.error || "Error al cargar datos")
+        setError(fincasResponse.error || valvulasResponse.error || "Error al cargar datos");
       }
     } catch (err) {
       console.error("Error fetching data:", err)
@@ -64,7 +83,15 @@ export function ValvulasControl() {
       setLoadingLotes(true)
       apiService.request(`/api/lotes/all/${selectedFincaId}`)
         .then((resp) => {
-          setLotes(resp?.data?.data || [])
+          // Normalizar la respuesta: puede venir como array directo o como { data: { data: [...] } } u otras variantes.
+          const payload: any = (resp && typeof resp === "object" && "data" in resp) ? resp.data : resp
+          const lotesArr =
+            Array.isArray(payload?.data)
+              ? payload.data
+              : Array.isArray(payload)
+                ? payload
+                : []
+          setLotes(lotesArr)
         })
         .finally(() => setLoadingLotes(false))
     } else {
@@ -79,7 +106,22 @@ export function ValvulasControl() {
       setIsLoading(true)
       apiService.request(`/api/valvulas/lote/${selectedLoteId}`)
         .then((resp) => {
-          setValvulas(resp?.data?.data || [])
+          let valvulasArr: any[] = []
+          if (resp && typeof resp === "object") {
+            if (
+              "data" in resp &&
+              resp.data &&
+              typeof resp.data === "object" &&
+              Array.isArray((resp.data as any).data)
+            ) {
+              valvulasArr = (resp.data as any).data
+            } else if ("data" in resp && Array.isArray((resp as any).data)) {
+              valvulasArr = (resp as any).data
+            } else if (Array.isArray(resp)) {
+              valvulasArr = resp
+            }
+          }
+          setValvulas(valvulasArr)
         })
         .finally(() => setIsLoading(false))
     } else if (selectedFincaId !== "all") {
@@ -142,7 +184,7 @@ export function ValvulasControl() {
     const valvulasLote = filteredValvulas.filter((v) => v.loteId?.toString() === selectedLoteId)
     for (const valvula of valvulasLote) {
       if (valvula.isActive !== false) {
-        handleToggleValvula(valvula.id, turnOn)
+        handleToggleValvula(valvula.id)
       }
     }
   }
@@ -215,7 +257,8 @@ export function ValvulasControl() {
       const response = await apiService.controlValvula(valvulaId, action)
 
       if (response.success) {
-        const message = newEstado === "ABIERTA" ? "activada" : "desactivada"
+        //const message = newEstado === "ABIERTA" ? "activada" : "desactivada"
+        const message = newEstado === "ABIERTA" ? "Abierta" : "Cerrada"
         showSuccess(`Válvula ${message}`, `${valvula.nombre} ha sido ${message} correctamente`)
       } else {
         setValvulas((prevValvulas) =>
@@ -391,7 +434,7 @@ export function ValvulasControl() {
                 <SelectItem value="all" className="text-base py-3">
                   Todas las fincas ({fincas.length})
                 </SelectItem>
-                {fincas.map((finca) => (
+                {Array.isArray(fincas) && fincas.map((finca) => (
                   <SelectItem key={finca.id.toString()} value={finca.id.toString()} className="text-base py-3">
                     {finca.nombre}
                   </SelectItem>
@@ -536,7 +579,7 @@ export function ValvulasControl() {
 
       <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredValvulas.map((valvula) => {
-          const finca = fincas.find((f) => f.id === valvula.fincaId)
+          const finca = Array.isArray(fincas) ? fincas.find((f) => f.id === valvula.fincaId) : undefined
           const lote = lotes.find((l) => l.id === valvula.loteId)
           const isValvulaLoading = loadingValvulas.has(valvula.id)
 

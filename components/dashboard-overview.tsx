@@ -60,9 +60,11 @@ export function DashboardOverview() {
   }, [])
 
   // Calcular estadísticas
-  const activeValvulas = userValvulas.filter((v) => v.isOpen)
-  const totalWaterFlow = activeValvulas.reduce((sum, v) => sum + v.flowRate, 0)
-  const maintenanceValvulas = userValvulas.filter((v) => v.status === "maintenance")
+  // Use existing boolean `isOpen` on valvulas; guard numeric fields with nullish coalescing.
+  const activeValvulas = userValvulas.filter((v) => Boolean((v as any).isOpen))
+  const totalWaterFlow = activeValvulas.reduce((sum, v) => sum + ((v as any).flowRate ?? 0), 0)
+  // Infer maintenance need from sensor readings if there's no explicit `status` field.
+  const maintenanceValvulas = userValvulas.filter((v) => (v.presion ?? 0) <= 0 || ((v as any).flowRate ?? 0) <= 0)
   const onlineSensors = userSensors.filter((s) => s.status === "online")
   const warningSensors = userSensors.filter((s) => s.status === "warning")
   const totalArea = userFincas.reduce((sum, f) => sum + f.area, 0)
@@ -82,7 +84,7 @@ export function DashboardOverview() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-2">
           <h1 className="text-2xl sm:text-3xl font-bold text-[rgba(28,53,45,1)] mb-2">
-            ¡Bienvenido, {user?.username?.split(" ")[0] || "Usuario"}! 🌱
+            ¡Bienvenido, {String((user as any)?.username ?? (user as any)?.name ?? (user as any)?.email?.split("@")[0] ?? "Usuario").split(" ")[0]}! 🌱
           </h1>
           <p className="text-muted-foreground pl-1">
             {user?.role === "ADMIN"
@@ -278,12 +280,12 @@ export function DashboardOverview() {
               {activeValvulas.map((valvula) => {
                 const lote = userLotes.find((l) => l.id === valvula.loteId)
                 const finca = userFincas.find((f) => f.id === valvula.fincaId)
-                const consumoLitros = (valvula.flowRate || 0) * 60 // L/min to L/hour approximation
+                const consumoLitros = ((valvula as any).flowRate ?? 0) * 60 // L/min to L/hour approximation
 
                 return (
                   <div key={valvula.id} className="p-4 border rounded-lg bg-blue-50/50">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-sm truncate">{valvula.name}</h4>
+                      <h4 className="font-medium text-sm truncate">{valvula.nombre}</h4>
                       <div className="flex items-center gap-1">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                         <span className="text-xs text-green-600 font-medium">Activa</span>
@@ -292,7 +294,7 @@ export function DashboardOverview() {
 
                     <div className="text-xs text-muted-foreground mb-3">
                       <p>
-                        {lote?.name} - {finca?.name}
+                        {lote?.nombre} - {finca?.nombre}
                       </p>
                     </div>
 
@@ -300,7 +302,7 @@ export function DashboardOverview() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">Flujo:</span>
                         <span className="text-sm font-semibold text-blue-600">
-                          {(valvula.flowRate || 0).toFixed(1)} L/min
+                          {((valvula as any).flowRate ?? 0).toFixed(1)} L/min
                         </span>
                       </div>
 
@@ -318,8 +320,8 @@ export function DashboardOverview() {
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">Tiempo activa:</span>
                           <span className="font-medium">
-                            {valvula.lastActivity
-                              ? `${Math.floor((Date.now() - valvula.lastActivity.getTime()) / (1000 * 60))} min`
+                            {(valvula as any).lastActivity
+                              ? `${Math.floor((Date.now() - (valvula as any).lastActivity.getTime()) / (1000 * 60))} min`
                               : "N/A"}
                           </span>
                         </div>
@@ -436,7 +438,7 @@ export function DashboardOverview() {
                 <div key={valvula.id} className="flex items-center gap-3 p-2 bg-orange-50 rounded">
                   <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{valvula.name}</p>
+                    <p className="text-sm font-medium truncate">{valvula.nombre}</p>
                     <p className="text-xs text-orange-600">Requiere mantenimiento</p>
                   </div>
                 </div>
@@ -476,17 +478,17 @@ export function DashboardOverview() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {userLotes.map((lote) => {
               const loteValvulas = userValvulas.filter((v) => v.loteId === lote.id)
-              const activeLoteValvulas = loteValvulas.filter((v) => v.isOpen)
+              const activeLoteValvulas = loteValvulas.filter((v) => Boolean((v as any).isOpen))
               const loteSensors = userSensors.filter((s) => s.loteId === lote.id)
               const finca = userFincas.find((f) => f.id === lote.fincaId)
 
               return (
                 <div key={lote.id} className="p-4 border rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium truncate">{lote.name}</h4>
+                    <h4 className="font-medium truncate">{lote.nombre}</h4>
                     <Badge variant="outline">{lote.area.toFixed(1)} Ha</Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-3">{finca?.name}</p>
+                  <p className="text-xs text-muted-foreground mb-3">{finca?.nombre}</p>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="p-2 bg-blue-50 rounded">
                       <div className="text-sm font-semibold text-blue-600">{activeLoteValvulas.length}</div>
