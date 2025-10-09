@@ -55,11 +55,13 @@ export function CalendarioRiego() {
     setLoadingFincas(true)
     apiService.getAllFincas()
       .then((resp) => {
+        // Normalizar la carga: el servicio puede devolver directamente un array o un objeto con la propiedad `data`.
+        const payload: any = (resp && typeof resp === "object" && "data" in resp) ? (resp as any).data : resp
         const fincasArr =
-          Array.isArray(resp?.data?.data)
-            ? resp.data.data
-            : Array.isArray(resp?.data)
-              ? resp.data
+          Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload)
+              ? payload
               : []
         setFincasData(fincasArr)
       })
@@ -76,7 +78,15 @@ export function CalendarioRiego() {
     setLoadingLotes(true)
     apiService.request(`/api/lotes/all/${selectedFinca}`)
       .then((resp) => {
-        setLotesData(resp?.data?.data || [])
+        // Normalizar la respuesta: puede venir como array directo o como { data: { data: [...] } } u otras variantes.
+        const payload: any = (resp && typeof resp === "object" && "data" in resp) ? (resp as any).data : resp
+        const lotesArr =
+          Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload)
+              ? payload
+              : []
+        setLotesData(lotesArr)
       })
       .finally(() => setLoadingLotes(false))
     setSelectedLote("")
@@ -182,9 +192,9 @@ export function CalendarioRiego() {
     return colors[index % colors.length]
   }
 
-  const selectedFincaData = fincasData.find((f) => f.id === autoSelectedFinca)
+  const selectedFincaData = fincasData.find((f: any) => f.id === autoSelectedFinca)
   const availableLotes = selectedFincaData?.lotes || []
-  const selectedLoteData = availableLotes.find((l) => l.id === selectedLote)
+  const selectedLoteData = availableLotes.find((l: any) => l.id === selectedLote)
   const availableValvulas = selectedLoteData?.valvulas || []
 
   useEffect(() => {
@@ -196,21 +206,21 @@ export function CalendarioRiego() {
   }, [user, userFincas, availableLotes, selectedLote])
 
   // Protege el acceso a lotes y válvulas para evitar errores si no existen
-  const allValvulas = Array.isArray(fincasData)
-    ? fincasData.flatMap((finca) =>
-        Array.isArray(finca.lotes)
-          ? finca.lotes.flatMap((lote) =>
-              Array.isArray(lote.valvulas)
-                ? lote.valvulas.map((valvula) => ({
-                    ...valvula,
-                    lotenombre: lote.nombre,
-                    fincanombre: finca.nombre,
-                  }))
-                : []
-            )
-          : []
-      )
-    : []
+    const allValvulas = Array.isArray(fincasData)
+      ? fincasData.flatMap((finca: any) =>
+          Array.isArray(finca.lotes)
+            ? finca.lotes.flatMap((lote: any) =>
+                Array.isArray(lote.valvulas)
+                  ? lote.valvulas.map((valvula: any) => ({
+                      ...valvula,
+                      lotenombre: lote.nombre,
+                      fincanombre: finca.nombre,
+                    }))
+                  : []
+              )
+            : []
+        )
+      : []
 
   const handleAddSchedule = () => {
     if (
@@ -223,7 +233,6 @@ export function CalendarioRiego() {
         type: "error",
         title: "Error",
         message: "Por favor completa todos los campos requeridos incluyendo fecha y al menos una válvula",
-        autoClose: true,
         duration: 3000,
       })
       return
@@ -238,18 +247,30 @@ export function CalendarioRiego() {
         type: "error",
         title: "Error",
         message: "La fecha y hora seleccionada debe ser futura",
-        autoClose: true,
         duration: 3000,
       })
       return
     }
 
     newSchedule.valvulaIds.forEach((valvulaId) => {
-      addSchedule({
-        ...newSchedule,
-        valvulaId,
+      // Construir un payload que cumpla con la interfaz IrrigationSchedule (sin id ni createdAt)
+      const valvulaInfo = getValvulaInfo(valvulaId)
+      const loteInfo = lotesData.find((l) => l.id?.toString() === (newSchedule.loteId || selectedLote)?.toString())
+
+      const schedulePayload = {
+        // `name` es obligatorio en IrrigationSchedule
+        name: `${loteInfo?.nombre || loteInfo?.name || "Lote"} - ${valvulaInfo?.nombre || valvulaInfo?.name || `Válvula ${valvulaId}`}`,
+        loteId: Number(newSchedule.loteId),
+        valvulaId: Number(valvulaId),
+        startDate: newSchedule.startDate,
+        startTime: newSchedule.startTime,
+        duration: newSchedule.duration,
+        frequency: newSchedule.frequency,
+        isActive: newSchedule.isActive,
         nextExecution,
-      })
+      }
+
+      addSchedule(schedulePayload)
     })
 
     setNewSchedule({
@@ -269,7 +290,6 @@ export function CalendarioRiego() {
       type: "success",
       title: "Programa Creado",
       message: `Se han creado ${newSchedule.valvulaIds.length} programa(s) de riego exitosamente`,
-      autoClose: true,
       duration: 3000,
     })
   }
@@ -295,12 +315,13 @@ export function CalendarioRiego() {
   const handleSelectAllValvulas = (selectAll: boolean) => {
     setNewSchedule((prev) => ({
       ...prev,
-      valvulaIds: selectAll ? availableValvulas.map((v) => v.id) : [],
+      valvulaIds: selectAll ? availableValvulas.map((v: any) => v.id) : [],
     }))
   }
 
-  const getValvulaInfo = (valvulaId: string) => {
-    return allValvulas.find((v) => v.id === valvulaId)
+  const getValvulaInfo = (valvulaId: string | number) => {
+    const idStr = valvulaId != null ? valvulaId.toString() : ""
+    return allValvulas.find((v) => v.id?.toString() === idStr)
   }
 
   const getFrequencyText = (frequency: string) => {
@@ -322,14 +343,21 @@ export function CalendarioRiego() {
     }
 
     // For client users, only show schedules from their assigned fincas
-    const userFincaIds = userFincas.map((f) => f.id)
+    const userFincaIds = userFincas.map((f: any) => f.id)
     return schedules.filter((schedule) => {
       const valvulaInfo = getValvulaInfo(schedule.valvulaId)
       return (
         valvulaInfo &&
-        userFincaIds.some((fincaId) =>
-          fincasData.find((f) => f.id === fincaId)?.lotes.some((l) => l.valvulas.some((v) => v.id === schedule.valvulaId)),
-        )
+        userFincaIds.some((fincaId: any) => {
+          const finca = fincasData.find((f: any) => f.id === fincaId)
+          // protege si no hay lotes o la estructura no es la esperada
+          if (!finca || !Array.isArray(finca.lotes)) return false
+          return finca.lotes.some((l: any) => {
+            // protege si l.valvulas no es un array
+            if (!l || !Array.isArray(l.valvulas)) return false
+            return l.valvulas.some((v: any) => v.id === schedule.valvulaId)
+          })
+        })
       )
     })
   }, [schedules, user, userFincas, fincasData])
@@ -354,13 +382,12 @@ export function CalendarioRiego() {
 
   const dayNames = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"]
 
-  const handleToggleSchedule = (scheduleId: string, checked: boolean) => {
-    updateSchedule(scheduleId, { isActive: checked })
+  const handleToggleSchedule = (scheduleId: string | number, checked: boolean) => {
+    updateSchedule(String(scheduleId), { isActive: checked })
     addNotification({
       type: "success",
       title: "Programa Actualizado",
       message: `El programa de riego ha sido ${checked ? "activado" : "desactivado"} exitosamente`,
-      autoClose: true,
       duration: 3000,
     })
   }
@@ -371,7 +398,6 @@ export function CalendarioRiego() {
       type: "success",
       title: "Programa Eliminado",
       message: "El programa de riego ha sido eliminado exitosamente",
-      autoClose: true,
       duration: 3000,
     })
   }
@@ -397,7 +423,7 @@ export function CalendarioRiego() {
   }
 
   // Función para eliminar con confirmación
-  const confirmDeleteSchedule = (scheduleId: string) => {
+  const confirmDeleteSchedule = (scheduleId: string | number) => {
     Swal.fire({
       title: "¿Eliminar programa?",
       text: "¿Estás seguro que deseas eliminar este programa de riego?",
@@ -409,7 +435,7 @@ export function CalendarioRiego() {
       cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
-        handleDeleteSchedule(scheduleId)
+        handleDeleteSchedule(String(scheduleId))
       }
     })
   }
@@ -428,7 +454,15 @@ export function CalendarioRiego() {
       // Si no tiene valvulas, intenta cargar por API (por si el backend no las incluye en el lote)
       apiService.request(`/api/valvulas/lote/${selectedLote}`)
         .then((resp) => {
-          setValvulasData(resp?.data?.data || [])
+          // Normalizar la respuesta: puede venir como array directo o como { data: { data: [...] } } u otras variantes.
+          const payload: any = (resp && typeof resp === "object" && "data" in resp) ? (resp as any).data : resp
+          const valvulasArr =
+            Array.isArray(payload?.data)
+              ? payload.data
+              : Array.isArray(payload)
+                ? payload
+                : []
+          setValvulasData(valvulasArr)
         })
         .catch(() => setValvulasData([]))
     }
@@ -506,7 +540,6 @@ export function CalendarioRiego() {
               }
               setShowAddDialog(open)
             }}
-            closeOnInteractOutside={false}
           >
             <DialogTrigger asChild>
               <Button className="px-6 py-2">
@@ -941,7 +974,7 @@ export function CalendarioRiego() {
                               type: "info",
                               title: "Función en Desarrollo",
                               message: "La edición de programas estará disponible pronto",
-                              autoClose: true,
+                              //autoClose: true,
                               duration: 3000,
                             })
                           }}
