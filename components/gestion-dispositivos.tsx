@@ -66,13 +66,13 @@ export function GestionDispositivos() {
     const opcionesTHPHS = [
         "Temperatura",
         "Humedad",
-        "Ph",
-        "-S",
-        "EC",
+        "PH",
+        "TDS",
+        "Conductividad (EC)",
         "Salinidad",
-        "Nitrogeno",
-        "Fosforo",
-        "Potasio"
+        "Nitrógeno (N)",
+        "Fósforo (P)",
+        "Potasio (K)"
     ];
 
     const resetForm = () => {
@@ -616,7 +616,7 @@ export function GestionDispositivos() {
                                     </div>
                                     {/* Presiones */}
                                     <div>
-                                        <span className="font-semibold">Presiones</span>
+                                        <span className="font-semibold">Sensor de Presión</span>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-2 w-full">
                                             {[1,2,3,4].map((n, i) => (
                                                 <div key={n} className="flex flex-col gap-2 bg-[#F9F6F3] rounded-lg p-3 border border-[#A6B28B]">
@@ -641,13 +641,13 @@ export function GestionDispositivos() {
                                     </div>
                                     {/* SHT20 */}
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                                        <Label className="w-24">SHT20</Label>
+                                        <Label className="w-34">Sensor del Aire</Label>
                                         <Switch checked={sht20} onCheckedChange={setSht20} />
                                     </div>
                                     {/* THPH-S */}
                                     <div>
                                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                                            <Label className="w-24">THPH-S</Label>
+                                            <Label className="w-34">Sensor del Suelo</Label>
                                             <Switch checked={thphs} onCheckedChange={setThphs} />
                                         </div>
                                         {thphs && (
