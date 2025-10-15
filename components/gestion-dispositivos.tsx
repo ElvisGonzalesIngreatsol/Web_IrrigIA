@@ -9,10 +9,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Cpu } from "lucide-react"
+import { Plus, Edit, Trash2, Cpu, Settings } from "lucide-react"
 import { apiService } from "@/lib/api"
 import Swal from "sweetalert2"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch" // Asegúrate de tener este componente
 
 interface Device {
     id: string
@@ -29,7 +30,12 @@ interface Device {
 }
 
 export function GestionDispositivos() {
-    const [devices, setDevices] = useState<Device[]>([])
+    // Paginación y modal de configuración
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(5);
+    const [isConfigOpen, setIsConfigOpen] = useState(false);
+    const [configDevice, setConfigDevice] = useState<Device | null>(null);
+    const [devices, setDevices] = useState<Device[]>([]);
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -45,12 +51,29 @@ export function GestionDispositivos() {
         joinEui: "",
         deviceProfile: "",
     })
-
-    // NUEVO: Estado para fincas
     const [fincas, setFincas] = useState<{ id: number; nombre: string }[]>([])
-    // NUEVO: Estado para loading de fincas
     const [loadingFincas, setLoadingFincas] = useState(false)
     const [fincasError, setFincasError] = useState<string | null>(null)
+
+    // Estado para los switches y campos del modal de configuración
+    const [valvulas, setValvulas] = useState([false, false, false, false]);
+    const [presiones, setPresiones] = useState([false, false, false, false]);
+    const [presionNumeros, setPresionNumeros] = useState(["", "", "", ""]);
+    const [sht20, setSht20] = useState(false);
+    const [thphs, setThphs] = useState(false);
+    const [thphsOpciones, setThphsOpciones] = useState<string[]>([]);
+
+    const opcionesTHPHS = [
+        "Temperatura",
+        "Humedad",
+        "Ph",
+        "-S",
+        "EC",
+        "Salinidad",
+        "Nitrogeno",
+        "Fosforo",
+        "Potasio"
+    ];
 
     const resetForm = () => {
         setFormData({
@@ -250,6 +273,10 @@ export function GestionDispositivos() {
             }
         })
     }
+
+    // Lógica de paginación
+    const totalPages = Math.ceil(devices.length / rowsPerPage);
+    const paginatedDevices = devices.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
     return (
         <div className="space-y-8 p-6 min-h-screen" style={{ backgroundColor: "#F9F6F3" }}>
@@ -452,82 +479,224 @@ export function GestionDispositivos() {
                     ) : error ? (
                         <div className="text-center text-lg text-red-500 py-8">{error}</div>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow style={{ borderColor: "#A6B28B" }}>
-                                    <TableHead style={{ color: "#1C352D" }}>Nombre</TableHead>
-                                    <TableHead style={{ color: "#1C352D" }}>Descripción</TableHead>
-                                    <TableHead style={{ color: "#1C352D" }}>Device EUI</TableHead>
-                                    <TableHead style={{ color: "#1C352D" }}>Latitud</TableHead>
-                                    <TableHead style={{ color: "#1C352D" }}>Longitud</TableHead>
-                                    <TableHead style={{ color: "#1C352D" }}>Finca</TableHead>
-                                    <TableHead style={{ color: "#1C352D" }}>Estado</TableHead>
-                                    <TableHead className="text-center" style={{ color: "#1C352D" }}>Acciones</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {Array.isArray(devices) && devices.map((device) => (
-                                    <TableRow key={device.id} style={{ borderColor: "#A6B28B" }}>
-                                        <TableCell>{device.nombre}</TableCell>
-                                        <TableCell>{device.descripcion}</TableCell>
-                                        <TableCell>{device.deviceEui}</TableCell>
-                                        <TableCell>{device.lat}</TableCell>
-                                        <TableCell>{device.lng}</TableCell>
-                                        <TableCell>
-                                            {Array.isArray(fincas)
-                                                ? fincas.find((f) => f.id === device.fincaid)?.nombre || device.fincaid
-                                                : device.fincaid}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                className="text-xs font-medium"
-                                                style={{
-                                                    backgroundColor: device.isActive ? "#1C352D" : "#F5C9B0",
-                                                    color: device.isActive ? "#F9F6F3" : "#1C352D",
-                                                }}
-                                            >
-                                                {device.isActive ? "Activo" : "Deshabilitado"}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex gap-2 justify-center">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="border-2 transition-colors bg-transparent text-xs h-8"
-                                                    style={{
-                                                        borderColor: "#A6B28B",
-                                                        color: "#1C352D",
-                                                        backgroundColor: "transparent",
-                                                    }}
-                                                    onClick={() => handleEdit(device)}
-                                                >
-                                                    <Edit className="h-3 w-3 mr-1 flex-shrink-0" />
-                                                    Editar
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="border-2 transition-colors bg-transparent text-xs h-8"
-                                                    style={{
-                                                        borderColor: "#F5C9B0",
-                                                        color: "#1C352D",
-                                                        backgroundColor: "transparent",
-                                                    }}
-                                                    onClick={() => handleDelete(device)}
-                                                >
-                                                    <Trash2 className="h-3 w-3 mr-1 flex-shrink-0" />
-                                                    Eliminar
-                                                </Button>
-                                            </div>
-                                        </TableCell>
+                        <>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow style={{ borderColor: "#A6B28B" }}>
+                                        <TableHead style={{ color: "#1C352D" }}>Nombre</TableHead>
+                                        <TableHead style={{ color: "#1C352D" }}>Descripción</TableHead>
+                                        <TableHead style={{ color: "#1C352D" }}>Device EUI</TableHead>
+                                        <TableHead style={{ color: "#1C352D" }}>Latitud</TableHead>
+                                        <TableHead style={{ color: "#1C352D" }}>Longitud</TableHead>
+                                        <TableHead style={{ color: "#1C352D" }}>Finca</TableHead>
+                                        <TableHead style={{ color: "#1C352D" }}>Estado</TableHead>
+                                        <TableHead className="text-center" style={{ color: "#1C352D" }}>Acciones</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {Array.isArray(paginatedDevices) && paginatedDevices.map((device) => (
+                                        <TableRow key={device.id} style={{ borderColor: "#A6B28B" }}>
+                                            <TableCell>{device.nombre}</TableCell>
+                                            <TableCell>{device.descripcion}</TableCell>
+                                            <TableCell>{device.deviceEui}</TableCell>
+                                            <TableCell>{device.lat}</TableCell>
+                                            <TableCell>{device.lng}</TableCell>
+                                            <TableCell>
+                                                {Array.isArray(fincas)
+                                                    ? fincas.find((f) => f.id === device.fincaid)?.nombre || device.fincaid
+                                                    : device.fincaid}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    className="text-xs font-medium"
+                                                    style={{
+                                                        backgroundColor: device.isActive ? "#1C352D" : "#F5C9B0",
+                                                        color: device.isActive ? "#F9F6F3" : "#1C352D",
+                                                    }}
+                                                >
+                                                    {device.isActive ? "Activo" : "Deshabilitado"}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex gap-2 justify-center">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="border-2 transition-colors bg-transparent text-xs h-8"
+                                                        style={{
+                                                            borderColor: "#A6B28B",
+                                                            color: "#1C352D",
+                                                            backgroundColor: "transparent",
+                                                        }}
+                                                        onClick={() => handleEdit(device)}
+                                                    >
+                                                        <Edit className="h-3 w-3 mr-1 flex-shrink-0" />
+                                                        Editar
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="border-2 transition-colors bg-transparent text-xs h-8"
+                                                        style={{
+                                                            borderColor: "#F5C9B0",
+                                                            color: "#1C352D",
+                                                            backgroundColor: "transparent",
+                                                        }}
+                                                        onClick={() => handleDelete(device)}
+                                                    >
+                                                        <Trash2 className="h-3 w-3 mr-1 flex-shrink-0" />
+                                                        Eliminar
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="border-2 transition-colors bg-transparent text-xs h-8"
+                                                        style={{
+                                                            borderColor: "#A6B28B",
+                                                            color: "#1C352D",
+                                                            backgroundColor: "transparent",
+                                                        }}
+                                                        onClick={() => { setConfigDevice(device); setIsConfigOpen(true); }}
+                                                    >
+                                                        <Settings className="h-3 w-3 mr-1 flex-shrink-0" />
+                                                        Configuración
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                            {/* Paginación */}
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">Filas por página:</span>
+                                <select
+                                  className="border rounded px-2 py-1"
+                                  value={rowsPerPage}
+                                  onChange={e => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                >
+                                  <option value={5}>5</option>
+                                  <option value={8}>8</option>
+                                  <option value={10}>10</option>
+                                </select>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} size="sm">Anterior</Button>
+                                <span className="text-sm">Página {currentPage} de {totalPages}</span>
+                                <Button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} size="sm">Siguiente</Button>
+                              </div>
+                            </div>
+                            {/* Modal de Configuración */}
+                            <Dialog open={isConfigOpen} onOpenChange={(open) => { if (!open) { setIsConfigOpen(false); setConfigDevice(null); } }}>
+                                <DialogContent
+                                    onInteractOutside={e => e.preventDefault()} // Evita cerrar por click fuera
+                                    onEscapeKeyDown={e => e.preventDefault()} // Evita cerrar con ESC
+                                    className="max-w-3xl w-full"
+                            >
+                                <DialogHeader>
+                                    <DialogTitle>Configuración de Dispositivo</DialogTitle>
+                                    <DialogDescription>
+                                        Configura el dispositivo <b>{configDevice?.nombre}</b>
+                                    </DialogDescription>
+                                </DialogHeader>
+                                {/* NUEVO CONTENIDO VISUAL RESPONSIVO */}
+                                <div className="flex flex-col gap-8 py-4 w-full">
+                                    {/* Válvulas */}
+                                    <div>
+                                        <span className="font-semibold">Válvulas</span>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-2 w-full">
+                                            {[1,2,3,4].map((n, i) => (
+                                                <div key={n} className="flex items-center gap-3 bg-[#F9F6F3] rounded-lg p-3 border border-[#A6B28B]">
+                                                    <Label className="flex-1 min-w-[80px]">Válvula {n}</Label>
+                                                    <Switch checked={valvulas[i]} onCheckedChange={v => setValvulas(valvulas.map((val, idx) => idx === i ? v : val))} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {/* Presiones */}
+                                    <div>
+                                        <span className="font-semibold">Presiones</span>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-2 w-full">
+                                            {[1,2,3,4].map((n, i) => (
+                                                <div key={n} className="flex flex-col gap-2 bg-[#F9F6F3] rounded-lg p-3 border border-[#A6B28B]">
+                                                    <div className="flex items-center gap-3">
+                                                        <Label className="flex-1 min-w-[80px]">Presión {n}</Label>
+                                                        <Switch checked={presiones[i]} onCheckedChange={v => setPresiones(presiones.map((val, idx) => idx === i ? v : val))} />
+                                                    </div>
+                                                    <Input
+                                                        type="number"
+                                                        maxLength={3}
+                                                        value={presionNumeros[i]}
+                                                        onChange={e => {
+                                                            const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                                                            setPresionNumeros(presionNumeros.map((num, idx) => idx === i ? val : num));
+                                                        }}
+                                                        className="w-full mt-1"
+                                                        placeholder="###"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {/* SHT20 */}
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                        <Label className="w-24">SHT20</Label>
+                                        <Switch checked={sht20} onCheckedChange={setSht20} />
+                                    </div>
+                                    {/* THPH-S */}
+                                    <div>
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                                            <Label className="w-24">THPH-S</Label>
+                                            <Switch checked={thphs} onCheckedChange={setThphs} />
+                                        </div>
+                                        {thphs && (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2 ml-0 sm:ml-6">
+                                                {opcionesTHPHS.map(op => (
+                                                    <label key={op} className="flex items-center gap-2">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={thphsOpciones.includes(op)}
+                                                            onChange={e => {
+                                                                if (e.target.checked) {
+                                                                    setThphsOpciones([...thphsOpciones, op]);
+                                                                } else {
+                                                                    setThphsOpciones(thphsOpciones.filter(o => o !== op));
+                                                                }
+                                                            }}
+                                                        />
+                                                        <span>{op}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <DialogFooter className="gap-3">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => { setIsConfigOpen(false); setConfigDevice(null); }}
+                                        className="border-2 hover:bg-gray-50"
+                                    >
+                                        Cancelar
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        className="shadow-lg transition-all duration-300 transform hover:scale-105"
+                                        style={{ backgroundColor: "#1C352D", color: "#F9F6F3", borderColor: "#A6B28B" }}
+                                        onClick={() => { setIsConfigOpen(false); setConfigDevice(null); }}
+                                    >
+                                        Guardar
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                        </>
                     )}
                 </CardContent>
             </Card>
         </div>
     )
 }
+

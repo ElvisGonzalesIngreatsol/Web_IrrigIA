@@ -423,6 +423,23 @@ export function FincasManagement() {
                     required
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="longitude">Aplicacion ID *</Label>
+                  <Input
+                    id="longitude"
+                    type="number"
+                    step="any"
+                    value={formData.longitude}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        longitude: Number.parseFloat(e.target.value),
+                      })
+                    }
+                    placeholder="Ej: -74.0721"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">

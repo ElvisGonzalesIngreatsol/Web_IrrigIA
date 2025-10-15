@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check for stored user session
-    const storedUser = localStorage.getItem("user")
+    const storedUser = localStorage.getItem("USER")
     const storedToken = localStorage.getItem("token")
 
     if (storedUser && storedToken) {
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearStoredSession = () => {
     setUser(null)
     apiService.clearToken()
-    localStorage.removeItem("user")
+    localStorage.removeItem("USER")
     localStorage.removeItem("token")
   }
 
@@ -87,19 +87,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("[v0] Backend response:", response)
       console.log("[v0] Response data structure:", JSON.stringify(response.data, null, 2))
 
-      if (response.success && response.data) {
+      if (response.success && (response as any).data) {
         let token: string
         let backendUser: any
 
-        // The backend returns: { success: true, data: { token, refreshToken, user } }
-        if (response.data.data) {
-          // If there's a nested data object
-          token = response.data.data.token || response.data.data.token
-          backendUser = response.data.data.user
+        // El backend puede devolver: { success: true, data: { token, refreshToken, user } }
+        const respData = (response as any).data
+        if (respData && respData.data) {
+          // Si hay un objeto data anidado
+          token = respData.data.token || respData.data.token
+          backendUser = respData.data.user
         } else {
-          // Direct structure: { success: true, data: { token, user } }
-          token = response.data.token || response.data.token
-          backendUser = response.data.user
+          // Estructura directa: { success: true, data: { token, user } }
+          token = respData.token || respData.token
+          backendUser = respData.user
         }
 
         console.log("[v0] Extracted token:", token ? "Present" : "Missing")
@@ -222,7 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Update local state with backend response
       const updatedUser = { ...user, ...updates }
       setUser(updatedUser)
-      localStorage.setItem("user", JSON.stringify(updatedUser))
+      localStorage.setItem("USER", JSON.stringify(updatedUser))
 
       return true
     } catch (error) {

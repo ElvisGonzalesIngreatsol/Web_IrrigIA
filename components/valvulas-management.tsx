@@ -25,6 +25,9 @@ import { useNotifications } from "./notification-system"
 import type { Valvula, Finca, Lote } from "@/types"
 import Swal from "sweetalert2"
 import { apiService } from "@/lib/api"
+
+type ValvulaWithTipo = Valvula & { tipo?: string }
+
 export function ValvulasManagement() {
   const { showSuccess, showError } = useNotifications()
 
@@ -553,7 +556,7 @@ export function ValvulasManagement() {
                   <TableHead className="font-semibold min-w-[100px]" style={{ color: "#F9F6F3" }}>
                     Tipo
                   </TableHead>
-                  <TableHead className="font-semibold min-w-[120px]" style={{ color: "#F9B28B" }}>
+                  <TableHead className="font-semibold min-w-[120px]" style={{ color: "#F9F6F3" }}>
                     Device ID
                   </TableHead>
                   <TableHead className="font-semibold min-w-[100px]" style={{ color: "#F9F6F3" }}>
@@ -602,7 +605,9 @@ export function ValvulasManagement() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="min-w-[100px]">{getTypeBadge(valvula.tipo)}</TableCell>
+                      <TableCell className="min-w-[100px]">
+                        {getTypeBadge((valvula as ValvulaWithTipo).tipo ?? "")}
+                      </TableCell>
                       <TableCell className="min-w-[120px]">
                         <code
                           className="text-sm font-mono px-2 py-1 rounded truncate block"
