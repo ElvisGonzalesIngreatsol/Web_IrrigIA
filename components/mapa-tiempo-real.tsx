@@ -28,17 +28,30 @@ export function MapaTiempoReal() {
 
   // Memoizar la lógica de selección automática para evitar loops
   const autoSelectFinca = useCallback(() => {
-    if (user?.role === "USER" && userFincas.length > 0 && !selectedFinca) {
-      // Si el cliente solo tiene una finca, seleccionarla automáticamente
-      if (userFincas.length === 1) {
-        const finca = userFincas[0]
-        setSelectedFinca(String(finca.id))
-        // Usar latitude/longitude del tipo Finca
-        if (typeof finca.latitude === "number" && typeof finca.longitude === "number") {
-          setMapCenter({ lat: finca.latitude, lng: finca.longitude })
-          setMapZoom(16)
-        }
+    if (userFincas.length === 0) return
+
+    // Si el cliente solo tiene una finca, seleccionarla automáticamente
+    if (user?.role === "USER" && userFincas.length === 1 && !selectedFinca) {
+      const finca = userFincas[0]
+      setSelectedFinca(String(finca.id))
+
+      // Soportar distintos nombres de campo para coordenadas
+      const coords =
+        finca.mapCoordinates ??
+        finca.coordinates ??
+        (typeof finca.latitude === "number" && typeof finca.longitude === "number"
+          ? { lat: finca.latitude, lng: finca.longitude }
+          : null)
+
+      if (coords && typeof coords.lat === "number" && typeof coords.lng === "number") {
+        setMapCenter({ lat: coords.lat, lng: coords.lng })
+        setMapZoom(16)
       }
+    }
+
+    // Para admin: si no hay selección, seleccionar la primera finca disponible
+    if (user?.role === "ADMIN" && !selectedFinca && userFincas.length > 0) {
+      setSelectedFinca(String(userFincas[0].id))
     }
   }, [user?.role, userFincas, selectedFinca])
 
@@ -60,9 +73,16 @@ export function MapaTiempoReal() {
   }
 
   const handleFocusOnFinca = (finca: any) => {
-    // Usar latitude/longitude del tipo Finca
-    if (typeof finca.latitude === "number" && typeof finca.longitude === "number") {
-      setMapCenter({ lat: finca.latitude, lng: finca.longitude })
+    // Probar varios nombres de campo para coordenadas
+    const coords =
+      finca.mapCoordinates ??
+      finca.coordinates ??
+      (typeof finca.latitude === "number" && typeof finca.longitude === "number"
+        ? { lat: finca.latitude, lng: finca.longitude }
+        : null)
+
+    if (coords && typeof coords.lat === "number" && typeof coords.lng === "number") {
+      setMapCenter({ lat: coords.lat, lng: coords.lng })
       setMapZoom(16)
       setSelectedFinca(String(finca.id))
 
@@ -70,6 +90,13 @@ export function MapaTiempoReal() {
         type: "info",
         title: "Ubicación Encontrada",
         message: `Mostrando ubicación de ${finca.nombre}`,
+        duration: 2000,
+      })
+    } else {
+      addNotification({
+        type: "warning",
+        title: "Sin coordenadas",
+        message: `No se encuentran coordenadas para ${finca.nombre}`,
         duration: 2000,
       })
     }
@@ -110,30 +137,23 @@ export function MapaTiempoReal() {
   }
 
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-6 p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight text-[rgba(28,53,45,1)] leading-tight">
-            Mapa en Tiempo Real
-          </h1>
-          <p className="text-muted-foreground leading-relaxed">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-[rgba(28,53,45,1)]">Mapa en Tiempo Real</h1>
+          <p className="text-muted-foreground">
             {user?.role === "ADMIN"
               ? "Visualización geográfica de sensores y válvulas en tiempo real"
               : `Monitoreo de ${userFincas.length === 1 ? "tu finca" : "tus fincas"} en tiempo real`}
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            className="text-black px-6 py-3 bg-transparent"
-            variant="outline"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
+        <div className="flex gap-2">
+          <Button className="text-black" variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
             {isRefreshing ? "Actualizando..." : "Actualizar"}
           </Button>
-          <Button className="text-black px-6 py-3 bg-transparent" variant="outline">
+          <Button className="text-black" variant="outline">
             <Maximize2 className="h-4 w-4 mr-2" />
             Pantalla Completa
           </Button>
@@ -141,36 +161,41 @@ export function MapaTiempoReal() {
       </div>
 
       {(user?.role === "ADMIN" || userFincas.length > 1) && (
-        <Card className="p-1">
-          <CardHeader className="px-6 py-5">
-            <CardTitle className="leading-tight">
-              {user?.role === "ADMIN" ? "Seleccionar Finca" : "Tus Fincas"}
-            </CardTitle>
-            <CardDescription className="leading-relaxed mt-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>{user?.role === "ADMIN" ? "Seleccionar Finca" : "Tus Fincas"}</CardTitle>
+            <CardDescription>
               {user?.role === "ADMIN"
                 ? "Haz clic en el ojo para ubicar la finca en el mapa"
                 : "Haz clic en el ojo para ubicar tu finca en el mapa"}
             </CardDescription>
           </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <div className="space-y-3">
+          <CardContent>
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
               {userFincas.map((finca) => (
-                <div key={finca.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
+                <div
+                  key={finca.id}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${
+                    selectedFinca === String(finca.id) ? "border-2 border-green-600 bg-green-50" : "border-slate-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-green-600" />
                     <div>
-                      <p className="font-medium text-sm leading-none">{finca.nombre}</p>
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{finca.location}</p>
+                      <p className="font-medium text-sm">{finca.nombre}</p>
+                      <p className="text-xs text-muted-foreground">{finca.location}</p>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleFocusOnFinca(finca)}
-                    className="h-9 w-9 p-0"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {selectedFinca === String(finca.id) && (
+                      <Badge variant="default" className="bg-green-600 text-white px-2 py-1">
+                        Mostrada
+                      </Badge>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => handleFocusOnFinca(finca)} className="h-8 w-8 p-0">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -179,24 +204,24 @@ export function MapaTiempoReal() {
       )}
 
       {user?.role === "USER" && userFincas.length === 1 && (
-        <Card className="p-1">
-          <CardHeader className="px-6 py-5">
-            <CardTitle className="leading-tight">Tu Finca</CardTitle>
-            <CardDescription className="leading-relaxed mt-2">Información de tu finca asignada</CardDescription>
+        <Card>
+          <CardHeader>
+            <CardTitle>Tu Finca</CardTitle>
+            <CardDescription>Información de tu finca asignada</CardDescription>
           </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <div className="flex items-center justify-between p-5 bg-green-50 rounded-lg border-2 border-green-200">
-              <div className="flex items-center gap-4">
+          <CardContent>
+            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border-2 border-green-200">
+              <div className="flex items-center gap-3">
                 <MapPin className="h-5 w-5 text-green-600" />
                 <div>
-                  <p className="font-semibold text-green-800 leading-none">{userFincas[0].nombre}</p>
-                  <p className="text-sm text-green-600 mt-1 leading-relaxed">{userFincas[0].location}</p>
-                  <p className="text-xs text-green-500 mt-1 leading-relaxed">
+                  <p className="font-semibold text-green-800">{userFincas[0].nombre}</p>
+                  <p className="text-sm text-green-600">{userFincas[0].location}</p>
+                  <p className="text-xs text-green-500">
                     {userFincas[0].area} Ha • {userFincas[0].lotes?.length || 0} Lotes
                   </p>
                 </div>
               </div>
-              <Badge variant="default" className="bg-green-600 px-3 py-1">
+              <Badge variant="default" className="bg-green-600">
                 Asignada
               </Badge>
             </div>
@@ -204,52 +229,38 @@ export function MapaTiempoReal() {
         </Card>
       )}
 
-      <Card className="p-1">
-        <CardHeader className="px-6 py-5">
-          <CardTitle className="leading-tight">Vista del Mapa</CardTitle>
-          <CardDescription className="leading-relaxed mt-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Vista del Mapa</CardTitle>
+          <CardDescription>
             {user?.role === "ADMIN"
               ? "Mapa interactivo con ubicaciones reales de fincas, sensores y válvulas"
               : "Mapa interactivo de tu finca con sensores y válvulas"}
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-6 pb-6">
-          <div className="h-[600px] rounded-lg overflow-hidden border">
+        <CardContent>
+          <div className="h-[600px] rounded-lg overflow-hidden">
             <GoogleMap
               center={mapCenter}
               zoom={mapZoom}
-              fincas={userFincas.map((f) => ({
-                ...f,
-                id: String(f.id),
-                lotes: f.lotes?.map((l) => ({
-                  ...l,
-                  id: String(l.id),
-                  valvulas: l.valvulas?.map((v: any) => ({ ...v, id: String(v.id) })) ?? undefined,
-                  sensors: l.sensors?.map((s: any) => ({ ...s, id: String(s.id) })) ?? undefined,
-                })),
-              }))}
+              fincas={userFincas}
               selectedFinca={selectedFinca}
-              onFincaSelect={(id: any) => setSelectedFinca(id != null ? String(id) : null)}
+              onFincaSelect={setSelectedFinca}
             />
           </div>
         </CardContent>
       </Card>
 
       {(user?.role === "ADMIN" || userFincas.length > 1) && (
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant={selectedFinca === null ? "default" : "outline"}
-            onClick={() => setSelectedFinca(null)}
-            className="px-4 py-2"
-          >
-            Todas
+        <div className="flex flex-wrap gap-2">
+          <Button variant={selectedFinca === null ? "default" : "outline"} onClick={() => setSelectedFinca(null)}>
+            {user?.role === "ADMIN" ? "Todas las Fincas" : "Todas mis Fincas"}
           </Button>
           {userFincas.map((finca) => (
             <Button
               key={finca.id}
-              variant={selectedFinca === String(finca.id) ? "default" : "outline"}
-              onClick={() => setSelectedFinca(String(finca.id))}
-              className="px-4 py-2"
+              variant={selectedFinca === finca.id.toString() ? "default" : "outline"}
+              onClick={() => setSelectedFinca(finca.id.toString())}
             >
               {finca.nombre}
             </Button>
@@ -258,49 +269,43 @@ export function MapaTiempoReal() {
       )}
 
       {/* Panel de información */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="p-1">
-          <CardHeader className="px-6 py-5">
-            <CardTitle className="leading-tight">Estadísticas del Mapa</CardTitle>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Estadísticas del Mapa</CardTitle>
           </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm leading-relaxed">
-                  {user?.role === "ADMIN" ? "Total de Fincas:" : "Mis Fincas:"}
-                </span>
-                <Badge variant="outline" className="px-3 py-1">
-                  {userFincas.length}
-                </Badge>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-sm">{user?.role === "ADMIN" ? "Total de Fincas:" : "Mis Fincas:"}</span>
+                <Badge variant="outline">{userFincas.length}</Badge>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm leading-relaxed">Total de Lotes:</span>
-                <Badge variant="outline" className="px-3 py-1">
-                  {userFincas.reduce((acc, f) => acc + (f.lotes?.length || 0), 0)}
-                </Badge>
+              <div className="flex justify-between">
+                <span className="text-sm">Total de Lotes:</span>
+                <Badge variant="outline">{userFincas.reduce((acc, f) => acc + (f.lotes?.length || 0), 0)}</Badge>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm leading-relaxed">Válvulas Activas:</span>
-                <Badge variant="default" className="px-3 py-1">
+              <div className="flex justify-between">
+                <span className="text-sm">Válvulas Activas:</span>
+                <Badge variant="default">
                   {userFincas.reduce(
                     (acc, f) =>
                       acc +
                       (f.lotes?.reduce(
-                        (lAcc, l) => lAcc + (l.valvulas?.filter((v: any) => v.status === "open").length || 0),
+                        (lAcc, l) => lAcc + (l.valvulas?.filter((v) => v.estado === "ABIERTA").length || 0),
                         0,
                       ) || 0),
                     0,
                   )}
                 </Badge>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm leading-relaxed">Sensores Online:</span>
-                <Badge variant="default" className="px-3 py-1">
+              <div className="flex justify-between">
+                <span className="text-sm">Sensores Online:</span>
+                <Badge variant="default">
                   {userFincas.reduce(
                     (acc, f) =>
                       acc +
                       (f.lotes?.reduce(
-                        (lAcc, l) => lAcc + (l.sensors?.filter((s: any) => s.status === "active").length || 0),
+                        (lAcc, l) => lAcc + (l.sensors?.filter((s) => s.status === "online").length || 0),
                         0,
                       ) || 0),
                     0,
@@ -311,34 +316,35 @@ export function MapaTiempoReal() {
           </CardContent>
         </Card>
 
-        <Card className="p-1">
-          <CardHeader className="px-6 py-5">
-            <CardTitle className="leading-tight">Alertas del Mapa</CardTitle>
+        <Card>
+          <CardHeader>
+            <CardTitle>Alertas del Mapa</CardTitle>
           </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <div className="space-y-4">
-              <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded">
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 p-2 bg-yellow-50 rounded">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
                 <div>
-                  <p className="text-sm font-medium leading-none">Sensor pH Fuera de Rango</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  <p className="text-sm font-medium">Sensor pH Fuera de Rango</p>
+                  <p className="text-xs text-muted-foreground">
                     {userFincas.length > 0 ? `Lote C - ${userFincas[0].nombre}` : "Lote C"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3 bg-red-50 rounded">
+              <div className="flex items-start gap-2 p-2 bg-red-50 rounded">
                 <div className="w-2 h-2 bg-red-500 rounded-full mt-2"></div>
                 <div>
-                  <p className="text-sm font-medium leading-none">Válvula en Mantenimiento</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">Requiere inspección técnica</p>
+                  <p className="text-sm font-medium">Válvula en Mantenimiento</p>
+                  <p className="text-xs text-muted-foreground">Requiere inspección técnica</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded">
+              <div className="flex items-start gap-2 p-2 bg-blue-50 rounded">
                 <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                 <div>
-                  <p className="text-sm font-medium leading-none">Riego Programado</p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">Próximo riego en 2 horas</p>
+                  <p className="text-sm font-medium">Riego Programado</p>
+                  <p className="text-xs text-muted-foreground">Próximo riego en 2 horas</p>
                 </div>
               </div>
             </div>

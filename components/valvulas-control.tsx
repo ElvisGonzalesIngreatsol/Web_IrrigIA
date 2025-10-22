@@ -145,8 +145,8 @@ export function ValvulasControl() {
 
   useEffect(() => {
     const token = localStorage.getItem("token") // O usa tu método de auth
-    //const socket = io("https://back.irrigia.ingreatsol.com/api/ws", {
-    const socket = io("http://192.168.0.115:3001/api/ws", {
+    const socket = io("https://back.irrigia.ingreatsol.com/api/ws", {
+    //const socket = io("http://192.168.0.115:3001/api/ws", {
       transports: ["websocket"],
       auth: { token },
       query: { token },
@@ -618,22 +618,15 @@ export function ValvulasControl() {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="text-center space-y-1">
                     <div className="text-4xl font-bold text-blue-600">{(valvula.caudal || 0).toFixed(1)}</div>
-                    <div className="text-sm text-slate-600 font-medium">L/min</div>
+                    <div className="text-sm text-slate-600 font-medium">G/min</div>
                   </div>
                   <div className="text-center space-y-1">
                     <div className="text-4xl font-bold text-slate-700">{(valvula.presion || 0).toFixed(1)}</div>
-                    <div className="text-sm text-slate-600 font-medium">bar</div>
+                    <div className="text-sm text-slate-600 font-medium">PSI</div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  {/* <div className="flex items-center justify-between py-2">
-                    <span className="text-sm font-medium text-slate-700">Tipo:</span>
-                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-300">
-                      {getValvulaTypeName(valvula.tipo)}
-                    </Badge>
-                  </div> */}
-
                   <div className="flex items-center justify-between py-2">
                     <span className="text-sm font-medium text-slate-700">Estado:</span>
                     <Badge

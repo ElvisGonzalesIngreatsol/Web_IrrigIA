@@ -45,9 +45,10 @@ export function FincasManagement() {
     location: "",
     area: 0,
     coordinates: [] as LoteCoordinate[],
-    latitude: 0.0,
-    longitude: 0.0,
+    lat: 0.0,
+    lng: 0.0,
     zoom: 15,
+    applicationId: "",
   })
 
   useEffect(() => {
@@ -124,12 +125,16 @@ export function FincasManagement() {
     try {
       const calculatedArea = calculatePolygonArea(formData.coordinates)
       const payload = {
+        // Enviar 'name' para cumplir con la firma de apiService y mantener 'nombre' para la UI
         name: formData.nombre,
+        nombre: formData.nombre,
         location: formData.location,
         area: calculatedArea,
         coordinates: formData.coordinates,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
+        latitude: formData.lat,
+        longitude: formData.lng,
+        // AGREGADO: Incluir applicationId, enviando null si está vacío
+        applicationId: formData.applicationId || null, 
       }
 
       if (editingFinca) {
@@ -192,24 +197,39 @@ export function FincasManagement() {
       location: "",
       area: 0,
       coordinates: [],
-      latitude: 0.0,
-      longitude: 0.0,
+      lat: 0.0,
+      lng: 0.0,
       zoom: 15,
+      applicationId: "",
     })
     setEditingFinca(null)
   }
 
   const handleEdit = (finca: Finca) => {
     setEditingFinca(finca)
-    const fincaCoordinates = finca.coordinates || finca.coordinates || []
+    
+    let rawCoordinates = Array.isArray(finca.coordinates) ? finca.coordinates : []
+    
+    // CORRECCIÓN CLAVE: Mapeo defensivo para asegurar que cada objeto de coordenada tenga las claves 'lat' y 'lng'
+    // Esto resuelve el problema si el backend devuelve 'latitude'/'longitude' en el array de puntos.
+    const fincaCoordinates = rawCoordinates.map((c: any) => ({
+        lat: c.lat || c.latitude, // Intenta obtener 'lat' o 'latitude'
+        lng: c.lng || c.longitude, // Intenta obtener 'lng' o 'longitude'
+    })).filter(c => c.lat !== undefined && c.lng !== undefined) as LoteCoordinate[]
+    
+    console.log("[v0] Coordenadas cargadas (mapeadas) para edición:", fincaCoordinates)
+    
     setFormData({
       nombre: finca.nombre,
       location: finca.location ?? "",
       area: finca.area,
-      latitude: finca.latitude,
-      longitude: finca.longitude,
+      // Coordenadas para centrar el mapa (ya estaba bien)
+      lat: finca.latitude, 
+      lng: finca.longitude,
+      
       zoom: 15,
-      coordinates: Array.isArray(fincaCoordinates) ? fincaCoordinates : [],
+      coordinates: fincaCoordinates, // Usar las coordenadas mapeadas
+      applicationId: (finca as any).applicationId ?? "",
     })
     setIsDialogOpen(true)
   }
@@ -395,11 +415,11 @@ export function FincasManagement() {
                     id="latitude"
                     type="number"
                     step="any"
-                    value={formData.latitude || ""}
+                    value={formData.lat || ""}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        latitude: Number.parseFloat(e.target.value),
+                        lat: Number.parseFloat(e.target.value),
                       })
                     }
                     placeholder="Ej: 4.711"
@@ -412,11 +432,11 @@ export function FincasManagement() {
                     id="longitude"
                     type="number"
                     step="any"
-                    value={formData.longitude}
+                    value={formData.lng}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        longitude: Number.parseFloat(e.target.value),
+                        lng: Number.parseFloat(e.target.value),
                       })
                     }
                     placeholder="Ej: -74.0721"
@@ -424,20 +444,19 @@ export function FincasManagement() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="longitude">Aplicacion ID *</Label>
+                  <Label htmlFor="applicationId">Aplicacion ID </Label>
                   <Input
-                    id="longitude"
+                    id="applicationId"
                     type="number"
                     step="any"
-                    value={formData.longitude}
+                    value={formData.applicationId}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        longitude: Number.parseFloat(e.target.value),
+                        applicationId: e.target.value,
                       })
                     }
-                    placeholder="Ej: -74.0721"
-                    required
+                    placeholder="Ej: f04e0c1f"
                   />
                 </div>
               </div>
@@ -445,7 +464,7 @@ export function FincasManagement() {
               <div className="space-y-2">
                 <Label>Definir Límites de la Finca *</Label>
                 <LoteMapEditor
-                  center={{ lat: formData.latitude, lng: formData.longitude }}
+                  center={{ lat: formData.lat, lng: formData.lng }}
                   zoom={formData?.zoom}
                   coordinates={formData.coordinates}
                   onCoordinatesChange={(coordinates) => {
@@ -809,8 +828,8 @@ export function FincasManagement() {
                 <div className="h-[500px] rounded-lg overflow-hidden border">
                 <GoogleMap
                   center={{
-                  lat: viewingFinca.latitude || 4.711,
-                  lng: viewingFinca.longitude || -74.0721,
+                  lat: viewingFinca.latitude || -1.02492965174485,
+                  lng: viewingFinca.longitude || -79.47104509239567
                   }}
                   zoom={16}
                   showSatellite={true}
