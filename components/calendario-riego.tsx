@@ -21,7 +21,7 @@ import { apiService } from "@/lib/api"
 import { useData } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
 import { useNotifications } from "./notification-system"
-import { Calendar, Plus, Edit, Trash2, Play, ChevronLeft, ChevronRight, CalendarDays, List } from "lucide-react"
+import { Calendar, Plus, Loader2, Edit, Trash2, Play, ChevronLeft, ChevronRight, CalendarDays, List } from "lucide-react"
 import Swal from "sweetalert2"
 
 export function CalendarioRiego() {
@@ -49,6 +49,8 @@ export function CalendarioRiego() {
   const [selectedLoteId, setSelectedLoteId] = useState<string>("")
   const [loadingFincas, setLoadingFincas] = useState(false)
   const [loadingLotes, setLoadingLotes] = useState(false)
+  const [editingSchedule, setEditingSchedule] = useState<any | null>(null)
+  const [submittingSchedules, setSubmittingSchedules] = useState(false)
 
   // 1. Cargar fincas al montar el componente
   useEffect(() => {
@@ -57,13 +59,26 @@ export function CalendarioRiego() {
       .then((resp) => {
         // Normalizar la carga: el servicio puede devolver directamente un array o un objeto con la propiedad `data`.
         const payload: any = (resp && typeof resp === "object" && "data" in resp) ? (resp as any).data : resp
-        const fincasArr =
+        const rawFincas =
           Array.isArray(payload?.data)
             ? payload.data
             : Array.isArray(payload)
               ? payload
               : []
+        // Asegurar id como string y normalizar campos básicos
+        const fincasArr = rawFincas.map((f: any) => ({
+          ...f,
+          id: f.id != null ? String(f.id) : f.id,
+          nombre: f.nombre ?? f.name,
+          location: f.location ?? f.ubicacion ?? f.address,
+          // mantener lotes si vienen embebidos; si no, se cargarán al seleccionar la finca
+          lotes: Array.isArray(f.lotes) ? f.lotes : undefined,
+        }))
         setFincasData(fincasArr)
+        // Si es usuario cliente con 1 finca asignada, seleccionar automáticamente (dispara carga de lotes)
+        if (user?.role === "USER" && fincasArr.length === 1 && !selectedFinca) {
+          setSelectedFinca(fincasArr[0].id)
+        }
       })
       .finally(() => setLoadingFincas(false))
   }, [])
@@ -97,11 +112,18 @@ export function CalendarioRiego() {
       return fincasData
     }
 
-    const assignedFincas = user?.fincaIds
-      ? fincasData.filter((f) => user.fincaIds!.includes(f.id))
-      : user?.fincaId
-        ? fincasData.filter((f) => f.id === user.fincaId)
-        : []
+    // Comparar ids como strings para evitar mismatch number/string
+    const assignedFincas = (() => {
+      if (user?.fincaIds && Array.isArray(user.fincaIds)) {
+        const userIds = user.fincaIds.map((id: any) => String(id))
+        return fincasData.filter((f) => userIds.includes(String(f.id)))
+      }
+      if (user?.fincaId != null) {
+        const uid = String(user.fincaId)
+        return fincasData.filter((f) => String(f.id) === uid)
+      }
+      return []
+    })()
 
     return assignedFincas
   }, [fincasData, user])
@@ -123,18 +145,32 @@ export function CalendarioRiego() {
       return
     }
     // Busca la finca seleccionada en fincasData y toma sus lotes directamente
-    let fincaObj = fincasData.find((f) => {
-      // Asegura comparación por string para evitar problemas de tipo
-      return f.id?.toString() === fincaId?.toString()
-    })
+    let fincaObj = fincasData.find((f) => String(f.id) === String(fincaId))
+
     // Si no encuentra, intenta buscar por nombre (por si el id no está bien)
     if (!fincaObj && fincasData.length > 0) {
-      fincaObj = fincasData.find((f) => f.nombre?.toString() === fincaId?.toString())
+      fincaObj = fincasData.find((f) => String(f.nombre) === String(fincaId))
     }
-    if (fincaObj && Array.isArray(fincaObj.lotes)) {
+    if (fincaObj && Array.isArray(fincaObj.lotes) && fincaObj.lotes.length > 0) {
       setLotesData(fincaObj.lotes)
     } else {
-      setLotesData([])
+      // Si no trae lotes embebidos, pedir al backend
+      setLoadingLotes(true)
+      apiService.request(`/api/lotes/all/${String(fincaId)}`)
+        .then((resp) => {
+          const payload: any = (resp && typeof resp === "object" && "data" in resp) ? (resp as any).data : resp
+          const lotesArr =
+            Array.isArray(payload?.data)
+              ? payload.data
+              : Array.isArray(payload)
+                ? payload
+                : []
+          // Normalizar ids a string
+          const normalizedLotes = lotesArr.map((l: any) => ({ ...l, id: l.id != null ? String(l.id) : l.id }))
+          setLotesData(normalizedLotes)
+        })
+        .catch(() => setLotesData([]))
+        .finally(() => setLoadingLotes(false))
     }
     setSelectedLote("")
   }, [selectedFinca, autoSelectedFinca, fincasData])
@@ -206,23 +242,23 @@ export function CalendarioRiego() {
   }, [user, userFincas, availableLotes, selectedLote])
 
   // Protege el acceso a lotes y válvulas para evitar errores si no existen
-    const allValvulas = Array.isArray(fincasData)
-      ? fincasData.flatMap((finca: any) =>
-          Array.isArray(finca.lotes)
-            ? finca.lotes.flatMap((lote: any) =>
-                Array.isArray(lote.valvulas)
-                  ? lote.valvulas.map((valvula: any) => ({
-                      ...valvula,
-                      lotenombre: lote.nombre,
-                      fincanombre: finca.nombre,
-                    }))
-                  : []
-              )
+  const allValvulas = Array.isArray(fincasData)
+    ? fincasData.flatMap((finca: any) =>
+      Array.isArray(finca.lotes)
+        ? finca.lotes.flatMap((lote: any) =>
+          Array.isArray(lote.valvulas)
+            ? lote.valvulas.map((valvula: any) => ({
+              ...valvula,
+              lotenombre: lote.nombre,
+              fincanombre: finca.nombre,
+            }))
             : []
         )
-      : []
+        : []
+    )
+    : []
 
-  const handleAddSchedule = () => {
+  const handleAddSchedule = async () => {
     if (
       !newSchedule.loteId ||
       newSchedule.valvulaIds.length === 0 ||
@@ -240,9 +276,9 @@ export function CalendarioRiego() {
 
     const [year, month, day] = newSchedule.startDate.split("-").map(Number)
     const [hours, minutes] = newSchedule.startTime.split(":").map(Number)
-    const nextExecution = new Date(year, month - 1, day, hours, minutes, 0, 0)
+    const nextExecutionDate = new Date(year, month - 1, day, hours, minutes, 0, 0)
 
-    if (nextExecution < new Date()) {
+    if (nextExecutionDate < new Date()) {
       addNotification({
         type: "error",
         title: "Error",
@@ -252,46 +288,97 @@ export function CalendarioRiego() {
       return
     }
 
-    newSchedule.valvulaIds.forEach((valvulaId) => {
-      // Construir un payload que cumpla con la interfaz IrrigationSchedule (sin id ni createdAt)
-      const valvulaInfo = getValvulaInfo(valvulaId)
-      const loteInfo = lotesData.find((l) => l.id?.toString() === (newSchedule.loteId || selectedLote)?.toString())
+    setSubmittingSchedules(true)
+    try {
+      const requests = newSchedule.valvulaIds.map((valvulaId) => {
+        const valvulaInfo = getValvulaInfo(valvulaId)
+        const loteInfo = lotesData.find((l) => l.id?.toString() === (newSchedule.loteId || selectedLote)?.toString())
 
-      const schedulePayload = {
-        // `name` es obligatorio en IrrigationSchedule
-        name: `${loteInfo?.nombre || loteInfo?.name || "Lote"} - ${valvulaInfo?.nombre || valvulaInfo?.name || `Válvula ${valvulaId}`}`,
-        loteId: Number(newSchedule.loteId),
-        valvulaId: Number(valvulaId),
-        startDate: newSchedule.startDate,
-        startTime: newSchedule.startTime,
-        duration: newSchedule.duration,
-        frequency: newSchedule.frequency,
-        isActive: newSchedule.isActive,
-        nextExecution,
+        const schedulePayload = {
+          nombre: `${loteInfo?.nombre || loteInfo?.nombre || "Lote"} - ${valvulaInfo?.nombre || valvulaInfo?.nombre || `Válvula ${valvulaId}`}`,
+          loteId: Number(newSchedule.loteId),
+          valvulaId: Number(valvulaId),
+          startDate: newSchedule.startDate,
+          startTime: newSchedule.startTime,
+          duration: newSchedule.duration,
+          frequency: newSchedule.frequency,
+          isActive: newSchedule.isActive,
+          nextExecution: nextExecutionDate.toISOString(),
+        }
+
+        // Enviar al backend
+        return apiService.request("/api/riego/programar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(schedulePayload),
+        }).then((resp) => ({ resp, payload: schedulePayload }))
+      })
+
+      const results = await Promise.all(requests)
+
+      const successes: any[] = []
+      const failures: any[] = []
+
+      for (const r of results) {
+        const response = r.resp
+        if (response && (response as any).success === true) {
+          // Intenta extraer el scheduling creado desde la respuesta
+          const respAny: any = response
+          const created = respAny?.data ?? respAny?.data?.data ?? r.payload
+          // Añadirlo al estado local mediante addSchedule (si existe)
+          try {
+            addSchedule(created)
+          } catch {
+            // si addSchedule no acepta este formato, simplemente ignorar y seguir
+          }
+          successes.push(created)
+        } else {
+          failures.push({ payload: r.payload, error: (response as any)?.error || (response as any)?.message || "Error desconocido" })
+        }
       }
 
-      addSchedule(schedulePayload)
-    })
+      if (successes.length > 0) {
+        addNotification({
+          type: "success",
+          title: "Programas creados",
+          message: `Se crearon ${successes.length} programas correctamente`,
+          duration: 3000,
+        })
+      }
+      if (failures.length > 0) {
+        addNotification({
+          type: "error",
+          title: "Errores al crear",
+          message: `${failures.length} programas no pudieron crearse. Revisa la consola para más detalles.`,
+          duration: 6000,
+        })
+        console.error("Fallos al crear programas:", failures)
+      }
 
-    setNewSchedule({
-      loteId: "",
-      valvulaIds: [],
-      startDate: "",
-      startTime: "",
-      duration: 30,
-      frequency: "daily",
-      isActive: true,
-    })
-    setSelectedFinca("")
-    setSelectedLote("")
-    setShowAddDialog(false)
-
-    addNotification({
-      type: "success",
-      title: "Programa Creado",
-      message: `Se han creado ${newSchedule.valvulaIds.length} programa(s) de riego exitosamente`,
-      duration: 3000,
-    })
+      // limpieza y cierre del modal
+      setNewSchedule({
+        loteId: "",
+        valvulaIds: [],
+        startDate: "",
+        startTime: "",
+        duration: 30,
+        frequency: "daily",
+        isActive: true,
+      })
+      setSelectedFinca("")
+      setSelectedLote("")
+      setShowAddDialog(false)
+    } catch (err) {
+      console.error("Error al programar riego:", err)
+      addNotification({
+        type: "error",
+        title: "Error de conexión",
+        message: err instanceof Error ? err.message : "No se pudo conectar al servidor",
+        duration: 4000,
+      })
+    } finally {
+      setSubmittingSchedules(false)
+    }
   }
 
   const handleFincaChange = (fincaId: string) => {
@@ -401,9 +488,6 @@ export function CalendarioRiego() {
       duration: 3000,
     })
   }
-
-  // Estado para edición de programa
-  const [editingSchedule, setEditingSchedule] = useState<any | null>(null)
 
   // Función para abrir el modal de edición
   const openEditSchedule = (schedule: any) => {
@@ -579,7 +663,7 @@ export function CalendarioRiego() {
                   {user?.role === "USER" && userFincas.length === 1 && (
                     <div className="space-y-3">
                       <Label className="text-sm font-medium">Finca</Label>
-                      <div className="p-3 bg-muted rounded-md text-sm font-medium">{userFincas[0].name}</div>
+                      <div className="p-3 bg-muted rounded-md text-sm font-medium">{userFincas[0].nombre}</div>
                     </div>
                   )}
 
@@ -657,9 +741,7 @@ export function CalendarioRiego() {
                           >
                             <div className="flex items-center justify-between">
                               <span>{valvula.nombre || valvula.name}</span>
-                              <Badge variant="outline" className="text-xs px-2 py-1">
-                                {valvula.caudal || valvula.flowRate} L/min
-                              </Badge>
+                              
                             </div>
                           </label>
                         </div>
@@ -771,9 +853,18 @@ export function CalendarioRiego() {
                 >
                   Cancelar
                 </Button>
-                <Button onClick={handleAddSchedule} className="px-6 py-2">
-                  <Plus className="h-4 w-4 mr-2" />
-                  {editingSchedule ? "Actualizar Programa" : "Crear Programa"}
+                <Button onClick={handleAddSchedule} className="px-6 py-2" disabled={submittingSchedules}>
+                  {submittingSchedules ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      {editingSchedule ? "Actualizar Programa" : "Crear Programa"}
+                    </>
+                  )}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -807,8 +898,8 @@ export function CalendarioRiego() {
             <div className="text-3xl font-bold text-blue-600 mb-2">
               {filteredSchedules.filter((s) => s.isActive).length > 0
                 ? new Date(
-                    Math.min(...filteredSchedules.filter((s) => s.isActive).map((s) => s.nextExecution.getTime())),
-                  ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  Math.min(...filteredSchedules.filter((s) => s.isActive).map((s) => s.nextExecution.getTime())),
+                ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                 : "--:--"}
             </div>
             <p className="text-sm text-muted-foreground">siguiente riego programado</p>
@@ -855,14 +946,12 @@ export function CalendarioRiego() {
                 return (
                   <div
                     key={index}
-                    className={`min-h-[100px] p-2 border rounded-lg ${
-                      isCurrentMonth ? "bg-background" : "bg-muted/30"
-                    } ${isToday ? "ring-2 ring-primary" : ""}`}
+                    className={`min-h-[100px] p-2 border rounded-lg ${isCurrentMonth ? "bg-background" : "bg-muted/30"
+                      } ${isToday ? "ring-2 ring-primary" : ""}`}
                   >
                     <div
-                      className={`text-sm font-semibold mb-2 ${
-                        isCurrentMonth ? "text-foreground" : "text-muted-foreground"
-                      }`}
+                      className={`text-sm font-semibold mb-2 ${isCurrentMonth ? "text-foreground" : "text-muted-foreground"
+                        }`}
                     >
                       {date.getDate()}
                     </div>

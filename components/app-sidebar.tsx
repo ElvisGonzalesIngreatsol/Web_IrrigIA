@@ -32,7 +32,7 @@ import {
   ChevronUp,
   Brain,
   User,
-  PanelsLeftRightIcon,
+  Settings,
 } from "lucide-react"
 
 export function AppSidebar() {
@@ -66,9 +66,9 @@ export function AppSidebar() {
       href: "/mapa",
     },
     {
-      title: "Gestión de Lotes y Válvulas",
-      icon: Layers,
-      href: "/lotes-valvulas",
+      title: "Historico de Datos",
+      icon: Users,
+      href: "/historico",
     },
   ]
 
@@ -110,8 +110,8 @@ export function AppSidebar() {
     },
     {
       title: "Gestión de Dispositivos",
-      icon: PanelsLeftRightIcon,
-      href: "/gestion-dispositivos", 
+      icon: Settings,
+      href: "/gestion-dispositivos",
     },
     {
       title: "Gestión de Lotes y Válvulas",

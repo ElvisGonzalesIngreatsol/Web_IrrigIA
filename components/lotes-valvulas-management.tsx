@@ -1,7 +1,9 @@
 "use client"
 
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useData } from "@/contexts/data-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,6 +34,20 @@ import { apiService } from "@/lib/api"
 
 export function LotesValvulasManagement() {
   const { user } = useAuth()
+  const router = useRouter()
+
+  // Proteger ruta - redirigir si no es ADMIN
+  useEffect(() => {
+    if (user?.role !== "ADMIN") {
+      router.push("/dashboard")
+    }
+  }, [user, router])
+
+  // Si no es ADMIN, no renderizar nada mientras redirecciona
+  if (user?.role !== "ADMIN") {
+    return null
+  }
+
   const { valvulas, addLote, updateLote, deleteLote, addValvula, updateValvula, deleteValvula } = useData()
   const { showSuccess, showError } = useNotifications()
 

@@ -33,6 +33,7 @@ interface Lote {
 interface Finca {
   id?: string
   name?: string
+  nombre?: string
   location?: string
   area?: number | string
   coordinates?: Array<{ lat?: number | string; lng?: number | string }>

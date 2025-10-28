@@ -230,7 +230,7 @@ export function MonitoreoAvanzado() {
 
         marker.addListener("click", () => {
           try {
-            setSelectedValvula(valvula.id)
+            setSelectedValvula(valvula.id.toString())
             infoWindow.open(map, marker)
           } catch (error) {
             console.warn("Error opening valve info window:", error)
