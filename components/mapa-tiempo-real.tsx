@@ -30,8 +30,8 @@ export function MapaTiempoReal() {
   const autoSelectFinca = useCallback(() => {
     if (userFincas.length === 0) return
 
-    // Si el cliente solo tiene una finca, seleccionarla automáticamente
-    if (user?.role === "USER" && userFincas.length === 1 && !selectedFinca) {
+    // Si el usuario es USER/CLIENT y no hay selección, seleccionar la primera finca disponible
+    if ((user?.role === "USER") && !selectedFinca && userFincas.length > 0) {
       const finca = userFincas[0]
       setSelectedFinca(String(finca.id))
 
@@ -183,7 +183,9 @@ export function MapaTiempoReal() {
                     <MapPin className="h-4 w-4 text-green-600" />
                     <div>
                       <p className="font-medium text-sm">{finca.nombre}</p>
-                      <p className="text-xs text-muted-foreground">{finca.location}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {finca.location ? `${finca.location}` : ""}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

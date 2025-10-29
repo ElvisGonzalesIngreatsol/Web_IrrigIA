@@ -31,15 +31,19 @@ export function CalendarioRiego() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [selectedFinca, setSelectedFinca] = useState("")
   const [selectedLote, setSelectedLote] = useState("")
-  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar")
+  // Agregar la nueva vista semanal
+  const [viewMode, setViewMode] = useState<"calendar" | "list" | "week">("calendar")
   const [currentDate, setCurrentDate] = useState(new Date())
   const [newSchedule, setNewSchedule] = useState({
+    nombre: "",
     loteId: "",
     valvulaIds: [] as string[],
     startDate: "",
     startTime: "",
     duration: 30,
-    frequency: "daily" as "daily" | "weekly" | "custom",
+    frequency: "once" as "once" | "weekly_range" | "everyday" | "weekly_weekday",
+    endDate: "",
+    selectedWeekday: "",
     isActive: true,
   })
   const [fincasData, setFincasData] = useState<any[]>([])
@@ -51,6 +55,57 @@ export function CalendarioRiego() {
   const [loadingLotes, setLoadingLotes] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<any | null>(null)
   const [submittingSchedules, setSubmittingSchedules] = useState(false)
+
+  // Función para generar las horas del día (1 AM a 11 PM)
+  const generateHourLabels = () => {
+    const hours = []
+    for (let i = 0; i < 24; i++) {
+      hours.push(`${i}:00`)
+    }
+    return hours
+  }
+
+  // Función para obtener los días de la semana actual
+  const getWeekDays = () => {
+    const days = []
+    const startOfWeek = new Date(currentDate)
+    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay()) // Comenzar desde el domingo
+
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startOfWeek)
+      day.setDate(startOfWeek.getDate() + i)
+      days.push(day)
+    }
+    return days
+  }
+
+  // Función para obtener los programas de riego para un día específico
+  const getSchedulesForDay = (date: Date) => {
+    return schedules.filter((schedule) => {
+      const scheduleDate = new Date(schedule.nextExecution)
+      return scheduleDate.toDateString() === date.toDateString()
+    })
+  }
+
+  // Función para obtener la posición y altura del evento en la grilla
+  const getEventPosition = (startTime: string) => {
+    const [hours, minutes] = startTime.split(":").map(Number)
+    const topPosition = (hours * 60 + minutes) * (100 / 1440) // (minutos desde medianoche * altura por minuto)
+    return `${topPosition}%`
+  }
+
+  // Función para navegar entre semanas
+  const navigateWeek = (direction: "prev" | "next") => {
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev)
+      if (direction === "prev") {
+        newDate.setDate(prev.getDate() - 7)
+      } else {
+        newDate.setDate(prev.getDate() + 7)
+      }
+      return newDate
+    })
+  }
 
   // 1. Cargar fincas al montar el componente
   useEffect(() => {
@@ -241,6 +296,14 @@ export function CalendarioRiego() {
     }
   }, [user, userFincas, availableLotes, selectedLote])
 
+  // Si el usuario cambia la fecha de inicio y la frecuencia es semanal por día, preseleccionar el día
+  useEffect(() => {
+    if (newSchedule.frequency === "weekly_weekday" && newSchedule.startDate && !newSchedule.selectedWeekday) {
+      const d = new Date(newSchedule.startDate)
+      setNewSchedule((prev) => ({ ...prev, selectedWeekday: String(d.getDay()) }))
+    }
+  }, [newSchedule.frequency, newSchedule.startDate, newSchedule.selectedWeekday])
+
   // Protege el acceso a lotes y válvulas para evitar errores si no existen
   const allValvulas = Array.isArray(fincasData)
     ? fincasData.flatMap((finca: any) =>
@@ -290,84 +353,89 @@ export function CalendarioRiego() {
 
     setSubmittingSchedules(true)
     try {
-      const requests = newSchedule.valvulaIds.map((valvulaId) => {
-        const valvulaInfo = getValvulaInfo(valvulaId)
-        const loteInfo = lotesData.find((l) => l.id?.toString() === (newSchedule.loteId || selectedLote)?.toString())
-
-        const schedulePayload = {
-          nombre: `${loteInfo?.nombre || loteInfo?.nombre || "Lote"} - ${valvulaInfo?.nombre || valvulaInfo?.nombre || `Válvula ${valvulaId}`}`,
-          loteId: Number(newSchedule.loteId),
-          valvulaId: Number(valvulaId),
-          startDate: newSchedule.startDate,
-          startTime: newSchedule.startTime,
-          duration: newSchedule.duration,
-          frequency: newSchedule.frequency,
-          isActive: newSchedule.isActive,
-          nextExecution: nextExecutionDate.toISOString(),
+      const loteInfo = lotesData.find((l) => l.id?.toString() === (newSchedule.loteId || selectedLote)?.toString())
+      
+      // Determinar endDate y weekdays según la frecuencia
+      let endDateIso: string | undefined = undefined
+      const startDateObj = new Date(newSchedule.startDate)
+      if (newSchedule.frequency === "weekly_range") {
+        // por defecto la semana completa: 7 días desde la fecha seleccionada
+        const end = new Date(startDateObj)
+        end.setDate(end.getDate() + 6)
+        endDateIso = end.toISOString()
+      } else if (newSchedule.frequency === "everyday" || newSchedule.frequency === "weekly_weekday") {
+        if (!newSchedule.endDate) {
+          throw new Error("Por favor selecciona una fecha de vencimiento para la frecuencia elegida")
         }
+        endDateIso = new Date(newSchedule.endDate).toISOString()
+      }
 
-        // Enviar al backend
-        return apiService.request("/api/riego/programar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(schedulePayload),
-        }).then((resp) => ({ resp, payload: schedulePayload }))
+      const weekdays = newSchedule.frequency === "weekly_weekday"
+        ? (newSchedule.selectedWeekday ? [Number(newSchedule.selectedWeekday)] : [startDateObj.getDay()])
+        : undefined
+
+      // Crear un único payload con todas las válvulas
+      const schedulePayload: any = {
+        nombre: newSchedule.nombre || `${loteInfo?.nombre || "Lote"} - Programa múltiple`,
+        loteId: Number(newSchedule.loteId),
+        valvulaIds: newSchedule.valvulaIds.map(id => Number(id)), // Array de IDs de válvulas
+        startDate: newSchedule.startDate,
+        startTime: newSchedule.startTime,
+        duration: newSchedule.duration,
+        frequency: newSchedule.frequency,
+        isActive: newSchedule.isActive,
+        nextExecution: nextExecutionDate.toISOString(),
+        endDate: endDateIso,
+        weekdays,
+      }
+
+      // Enviar un solo request al backend
+      const response = await apiService.request("/api/riego/programar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(schedulePayload),
       })
 
-      const results = await Promise.all(requests)
+      if (response && (response as any).success === true) {
+        const respAny: any = response
+        const created = respAny?.data ?? respAny?.data?.data ?? schedulePayload
 
-      const successes: any[] = []
-      const failures: any[] = []
+        // Añadir el programa al estado local
+        try {
+          addSchedule(created)
+          addNotification({
+            type: "success",
+            title: "Programa creado",
+            message: `Se ha creado el programa de riego para ${newSchedule.valvulaIds.length} válvulas correctamente`,
+            duration: 3000,
+          })
 
-      for (const r of results) {
-        const response = r.resp
-        if (response && (response as any).success === true) {
-          // Intenta extraer el scheduling creado desde la respuesta
-          const respAny: any = response
-          const created = respAny?.data ?? respAny?.data?.data ?? r.payload
-          // Añadirlo al estado local mediante addSchedule (si existe)
-          try {
-            addSchedule(created)
-          } catch {
-            // si addSchedule no acepta este formato, simplemente ignorar y seguir
-          }
-          successes.push(created)
-        } else {
-          failures.push({ payload: r.payload, error: (response as any)?.error || (response as any)?.message || "Error desconocido" })
+          // limpieza y cierre del modal
+          setNewSchedule({
+            nombre: "",
+            loteId: "",
+            valvulaIds: [],
+            startDate: "",
+            startTime: "",
+            duration: 30,
+            frequency: "once",
+            endDate: "",
+            selectedWeekday: "",
+            isActive: true,
+          })
+          setSelectedFinca("")
+          setSelectedLote("")
+          setShowAddDialog(false)
+        } catch (error) {
+          console.error("Error al añadir el programa al estado:", error)
+          addNotification({
+            type: "error",
+            title: "Error al crear programa",
+            message: "Hubo un error al crear el programa en el estado local",
+            duration: 6000,
+          })
         }
       }
-
-      if (successes.length > 0) {
-        addNotification({
-          type: "success",
-          title: "Programas creados",
-          message: `Se crearon ${successes.length} programas correctamente`,
-          duration: 3000,
-        })
-      }
-      if (failures.length > 0) {
-        addNotification({
-          type: "error",
-          title: "Errores al crear",
-          message: `${failures.length} programas no pudieron crearse. Revisa la consola para más detalles.`,
-          duration: 6000,
-        })
-        console.error("Fallos al crear programas:", failures)
-      }
-
-      // limpieza y cierre del modal
-      setNewSchedule({
-        loteId: "",
-        valvulaIds: [],
-        startDate: "",
-        startTime: "",
-        duration: 30,
-        frequency: "daily",
-        isActive: true,
-      })
-      setSelectedFinca("")
-      setSelectedLote("")
-      setShowAddDialog(false)
     } catch (err) {
       console.error("Error al programar riego:", err)
       addNotification({
@@ -389,7 +457,13 @@ export function CalendarioRiego() {
 
   const handleLoteChange = (loteId: string) => {
     setSelectedLote(loteId)
-    setNewSchedule((prev) => ({ ...prev, loteId, valvulaIds: [] }))
+    const loteInfo = lotesData.find(l => l.id?.toString() === loteId)
+    setNewSchedule((prev) => ({ 
+      ...prev, 
+      loteId, 
+      valvulaIds: [],
+      nombre: loteInfo ? `Riego ${loteInfo.nombre}` : ""
+    }))
   }
 
   const handleValvulaToggle = (valvulaId: string, checked: boolean) => {
@@ -413,6 +487,15 @@ export function CalendarioRiego() {
 
   const getFrequencyText = (frequency: string) => {
     switch (frequency) {
+      case "once":
+        return "Una vez"
+      case "weekly_range":
+        return "Semanal (7 días)"
+      case "everyday":
+        return "Cada día"
+      case "weekly_weekday":
+        return "Cada semana (día seleccionado)"
+      // legacy / compat
       case "daily":
         return "Diario"
       case "weekly":
@@ -496,12 +579,15 @@ export function CalendarioRiego() {
     setSelectedFinca(schedule.fincaId?.toString() || "")
     setSelectedLote(schedule.loteId?.toString() || "")
     setNewSchedule({
+      nombre: schedule.nombre || "",
       loteId: schedule.loteId?.toString() || "",
       valvulaIds: [schedule.valvulaId?.toString()],
       startDate: schedule.startDate || "",
       startTime: schedule.startTime || "",
       duration: schedule.duration || 30,
-      frequency: schedule.frequency || "daily",
+      frequency: schedule.frequency || "once",
+      endDate: schedule.endDate || "",
+      selectedWeekday: schedule.weekdays && Array.isArray(schedule.weekdays) && schedule.weekdays.length > 0 ? String(schedule.weekdays[0]) : (schedule.selectedWeekday ? String(schedule.selectedWeekday) : ""),
       isActive: schedule.isActive ?? true,
     })
   }
@@ -558,12 +644,15 @@ export function CalendarioRiego() {
     setSelectedLote("")
     setValvulasData([])
     setNewSchedule({
+      nombre: "",
       loteId: "",
       valvulaIds: [],
       startDate: "",
       startTime: "",
       duration: 30,
-      frequency: "daily",
+      frequency: "once",
+      endDate: "",
+      selectedWeekday: "",
       isActive: true,
     })
   }
@@ -605,6 +694,16 @@ export function CalendarioRiego() {
             </Button>
             <Button
               className="px-4 py-2"
+              variant={viewMode === "week" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("week")}
+            >
+              {/* Puedes cambiar el ícono por uno más representativo si lo deseas */}
+              <CalendarDays className="h-4 w-4 mr-2" />
+              Semanal
+            </Button>
+            <Button
+              className="px-4 py-2"
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
               onClick={() => setViewMode("list")}
@@ -631,14 +730,28 @@ export function CalendarioRiego() {
                 Nuevo Programa
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl p-8">
-              <DialogHeader className="space-y-3">
-                <DialogTitle className="text-xl font-semibold">Nuevo Programa de Riego</DialogTitle>
-                <DialogDescription className="text-base">
-                  Configura un nuevo programa de riego automático
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-6">
+            <DialogContent className="max-w-2xl p-0 flex flex-col max-h-[90vh]">
+              <div className="flex-1 overflow-y-auto p-8">
+                <DialogHeader className="space-y-3">
+                  <DialogTitle className="text-xl font-semibold">Nuevo Programa de Riego</DialogTitle>
+                  <DialogDescription className="text-base">
+                    Configura un nuevo programa de riego automático
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-6">
+                <div className="space-y-3">
+                  <Label htmlFor="nombre" className="text-sm font-medium">
+                    Nombre del Programa
+                  </Label>
+                  <Input
+                    id="nombre"
+                    value={newSchedule.nombre}
+                    onChange={(e) => setNewSchedule((prev) => ({ ...prev, nombre: e.target.value }))}
+                    placeholder="Nombre del programa de riego"
+                    className="h-11"
+                  />
+                </div>
+
                 <div className="grid gap-6 md:grid-cols-3">
                   {(user?.role === "ADMIN" || userFincas.length > 1) && (
                     <div className="space-y-3">
@@ -806,25 +919,70 @@ export function CalendarioRiego() {
                     </Label>
                     <Select
                       value={newSchedule.frequency}
-                      onValueChange={(value: "daily" | "weekly" | "custom") =>
-                        setNewSchedule((prev) => ({ ...prev, frequency: value }))
+                      onValueChange={(value: string) =>
+                        setNewSchedule((prev) => ({ ...prev, frequency: value as any }))
                       }
                     >
                       <SelectTrigger className="h-11">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="daily" className="py-3">
-                          Diario
+                        <SelectItem value="once" className="py-3">
+                          Diario (Una vez)
                         </SelectItem>
-                        <SelectItem value="weekly" className="py-3">
-                          Semanal
+                        <SelectItem value="weekly_range" className="py-3">
+                          Semanal (7 días)
                         </SelectItem>
-                        <SelectItem value="custom" className="py-3">
-                          Personalizado
+                        <SelectItem value="everyday" className="py-3">
+                          Cada día (con vencimiento)
+                        </SelectItem>
+                        <SelectItem value="weekly_weekday" className="py-3">
+                          Cada semana - Día seleccionado (vencimiento)
                         </SelectItem>
                       </SelectContent>
                     </Select>
+
+                    {/* Campos condicionales según la frecuencia seleccionada */}
+                    {(newSchedule.frequency === "everyday" || newSchedule.frequency === "weekly_weekday") && (
+                      <div className="mt-5 grid gap-5 md:grid-cols-2">
+                        <div className="space-y-5">
+                          <Label htmlFor="endDate" className="text-sm font-medium">
+                            Fecha de vencimiento
+                          </Label>
+                          <Input
+                            id="endDate"
+                            type="date"
+                            value={newSchedule.endDate}
+                            min={newSchedule.startDate || new Date().toISOString().split("T")[0]}
+                            onChange={(e) => setNewSchedule((prev) => ({ ...prev, endDate: e.target.value }))}
+                            className="h-11"
+                          />
+                        </div>
+
+                        {newSchedule.frequency === "weekly_weekday" && (
+                          <div className="space-y-3">
+                            <Label htmlFor="weekday" className="text-sm font-medium">Día de la semana</Label>
+                            <Select
+                              value={newSchedule.selectedWeekday}
+                              onValueChange={(v: string) => setNewSchedule((prev) => ({ ...prev, selectedWeekday: v }))}
+                            >
+                              <SelectTrigger className="h-11">
+                                <SelectValue placeholder="Selecciona día" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="0">Domingo</SelectItem>
+                                <SelectItem value="1">Lunes</SelectItem>
+                                <SelectItem value="2">Martes</SelectItem>
+                                <SelectItem value="3">Miércoles</SelectItem>
+                                <SelectItem value="4">Jueves</SelectItem>
+                                <SelectItem value="5">Viernes</SelectItem>
+                                <SelectItem value="6">Sábado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center space-x-3 pt-8">
@@ -841,7 +999,8 @@ export function CalendarioRiego() {
                   </div>
                 </div>
               </div>
-              <DialogFooter className="gap-3 pt-6">
+              </div>
+              <DialogFooter className="gap-3 p-6 border-t">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -906,6 +1065,136 @@ export function CalendarioRiego() {
           </CardContent>
         </Card>
       </div>
+
+      {viewMode === "week" && (
+        <Card className="p-1">
+          <CardHeader className="pb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <Button variant="outline" size="sm" onClick={goToToday} className="px-4 py-2 bg-transparent">
+                  Hoy
+                </Button>
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm" onClick={() => navigateWeek("prev")} className="p-2">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <h2 className="text-xl font-semibold">
+                    {`${getWeekDays()[0].toLocaleDateString('es', { month: 'short', day: 'numeric' })} - ${getWeekDays()[6].toLocaleDateString('es', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                  </h2>
+                  <Button variant="outline" size="sm" onClick={() => navigateWeek("next")} className="p-2">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex">
+              {/* Columna de horas */}
+              <div className="w-20 border-r">
+                <div className="h-12"></div> {/* Espacio para el header de días */}
+                {generateHourLabels().map((hour) => (
+                  <div key={hour} className="h-12 border-b text-xs text-muted-foreground pr-2 text-right">
+                    {hour}
+                  </div>
+                ))}
+              </div>
+
+              {/* Grilla de días y eventos */}
+              <div className="flex-1 relative">
+                <div className="grid grid-cols-7">
+                  {/* Headers de días */}
+                  {getWeekDays().map((day, index) => (
+                    <div
+                      key={index}
+                      className={`h-12 border-b border-r p-2 text-center ${
+                        day.toDateString() === new Date().toDateString() ? "bg-blue-50" : ""
+                      }`}
+                    >
+                      <div className="text-sm font-medium">
+                        {day.toLocaleDateString('es', { weekday: 'short' }).toUpperCase()}
+                      </div>
+                      <div className={`text-2xl ${
+                        day.toDateString() === new Date().toDateString() ? "text-blue-600" : ""
+                      }`}>
+                        {day.getDate()}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Celdas de horas para cada día */}
+                  {getWeekDays().map((day, dayIndex) => (
+                    <div key={dayIndex} className="relative">
+                      {generateHourLabels().map((hour, hourIndex) => (
+                        <div
+                          key={`${dayIndex}-${hourIndex}`}
+                          className="h-12 border-b border-r hover:bg-gray-50 cursor-pointer"
+                          onClick={() => {
+                            setShowAddDialog(true)
+                            const [h] = hour.split(':')
+                            const newDate = new Date(day)
+                            newDate.setHours(parseInt(h), 0, 0)
+                            setNewSchedule(prev => ({
+                              ...prev,
+                              startDate: newDate.toISOString().split('T')[0],
+                              startTime: `${h.padStart(2, '0')}:00`
+                            }))
+                          }}
+                        ></div>
+                      ))}
+
+                      {/* Renderizar programas de riego */}
+                      {getSchedulesForDay(day).map((schedule, index) => {
+                        const valvulaInfo = getValvulaInfo(schedule.valvulaId)
+                        return (
+                          <div
+                            key={schedule.id}
+                            className="absolute left-0 right-1 p-1 rounded text-white text-xs"
+                            style={{
+                              top: getEventPosition(schedule.startTime),
+                              height: `${(schedule.duration / 15)}%`,
+                              backgroundColor: getScheduleColor(schedule, index),
+                              zIndex: 10
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              Swal.fire({
+                                title: "Programa de Riego",
+                                html: `
+                                  <div style='text-align:left'>
+                                    <b>Válvula:</b> ${valvulaInfo?.nombre || valvulaInfo?.name}<br/>
+                                    <b>Hora:</b> ${schedule.startTime}<br/>
+                                    <b>Duración:</b> ${schedule.duration} min<br/>
+                                  </div>
+                                `,
+                                showCancelButton: true,
+                                showDenyButton: true,
+                                confirmButtonText: "Editar",
+                                denyButtonText: "Eliminar",
+                                cancelButtonText: "Cerrar",
+                                confirmButtonColor: "#1C352D",
+                                denyButtonColor: "#F5C9B0",
+                              }).then((result) => {
+                                if (result.isConfirmed) {
+                                  openEditSchedule(schedule)
+                                } else if (result.isDenied) {
+                                  confirmDeleteSchedule(schedule.id)
+                                }
+                              })
+                            }}
+                          >
+                            {valvulaInfo?.nombre || valvulaInfo?.name}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {viewMode === "calendar" && (
         <Card className="p-1">

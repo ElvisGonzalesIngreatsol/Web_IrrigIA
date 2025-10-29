@@ -53,6 +53,7 @@ export interface Finca {
   status: "active" | "inactive"
   coordinates: LoteCoordinate[]
   createdAt: string
+  mapCoordinates?: LoteCoordinate 
 }
 
 export interface Lote {
@@ -84,6 +85,9 @@ export interface Valvula {
   createdAt: string
   fincaId: number
   loteId: number
+  coordinates: { lat: number; lng: number }
+  needsMaintenance: boolean
+  tipo: string
 }
 
 export interface Sensor {
