@@ -19,6 +19,16 @@ import { apiService } from "@/lib/api"
 import type { Finca, Valvula, Lote } from "@/types"
 import { io, Socket } from "socket.io-client"
 
+// Factor de conversión para estimar caudal (L/min) a partir de PSI.
+// Fórmula usada: Q_est = FACTOR * sqrt(PSI)
+// Ajusta FACTOR según tu calibración / tipo de válvula. Esto es solo una estimación.
+const EST_FLOW_FACTOR = 0.6
+
+function estimateFlowFromPressure(psi?: number | null) {
+  if (typeof psi !== "number" || !!Number.isNaN(psi) || psi <= 0) return 0
+  return EST_FLOW_FACTOR * Math.sqrt(psi)
+}
+
 export function ValvulasControl() {
   const { showSuccess, showError, showWarning } = useNotifications()
   const [fincas, setFincas] = useState<Finca[]>([])
@@ -159,16 +169,51 @@ export function ValvulasControl() {
 
     // Escucha eventos de actualización de válvula
     socket.on("valve-data", (data: any) => {
-      console.log("datos de valvula",data)
+      console.log("datos de valvula", data)
       setValvulas((prev) =>
-        prev.map((v) => (v.id === data.id ? { ...v, ...data } : v))
+        prev.map((v) => {
+          if (v.id !== data.id) return v
+          // Determina el estado resultante (puede venir en el payload)
+          const resultingEstado = data.estado ?? v.estado
+          const updated = { ...v, ...data }
+
+          // Solo aceptar/mostrar lectura de presión si la válvula está ABIERTA
+          if (typeof data.presion !== "undefined" && data.presion !== null) {
+            if (String(resultingEstado).toUpperCase() === "ABIERTA") {
+              updated.lastPressureReading = data.presion
+              updated.presion = data.presion
+            } else {
+              // Ignorar la lectura si está cerrada
+              updated.lastPressureReading = null
+              updated.presion = 0
+            }
+          }
+
+          return updated
+        }),
       )
     })
 
     socket.on("valve-response", (data: any) => {
-      console.log("respuesta : " ,data)
+      console.log("respuesta : ", data)
       setValvulas((prev) =>
-        prev.map((v) => (v.id === data.id ? { ...v, ...data } : v))
+        prev.map((v) => {
+          if (v.id !== data.id) return v
+          const resultingEstado = data.estado ?? v.estado
+          const updated = { ...v, ...data }
+
+          if (typeof data.presion !== "undefined" && data.presion !== null) {
+            if (String(resultingEstado).toUpperCase() === "ABIERTA") {
+              updated.lastPressureReading = data.presion
+              updated.presion = data.presion
+            } else {
+              updated.lastPressureReading = null
+              updated.presion = 0
+            }
+          }
+
+          return updated
+        }),
       )
     })    
 
@@ -206,7 +251,7 @@ export function ValvulasControl() {
   //   if (typeof forceEstado === "boolean") {
   //     newEstado = forceEstado ? "ABIERTA" : "CERRADA"
   //   } else {
-  //     newEstado = valvula.estado === "ABIERTA" ? "CERRADA" : "ABIERTA"
+  //     newEstado = String(valvula.estado).toUpperCase() === "ABIERTA" ? "CERRADA" : "ABIERTA"
   //   }
 
   //   // Enviar comando por WebSocket
@@ -250,7 +295,7 @@ export function ValvulasControl() {
 
     setLoadingValvulas((prev) => new Set(prev).add(valvulaId))
 
-    const newEstado = valvula.estado === "ABIERTA" ? "CERRADA" : "ABIERTA"
+  const newEstado = String(valvula.estado).toUpperCase() === "ABIERTA" ? "CERRADA" : "ABIERTA"
     setValvulas((prevValvulas) => prevValvulas.map((v) => (v.id === valvulaId ? { ...v, estado: newEstado } : v)))
 
     try {
@@ -258,8 +303,21 @@ export function ValvulasControl() {
       const response = await apiService.controlValvula(valvulaId, action)
 
       if (response.success) {
-        //const message = newEstado === "ABIERTA" ? "activada" : "desactivada"
-        const message = newEstado === "ABIERTA" ? "Abierta" : "Cerrada"
+  const message = newEstado === "ABIERTA" ? "Abierta" : "Cerrada"
+
+  // No simular lectura: esperar al backend (socket) que envíe la lectura real.
+  if (newEstado === "ABIERTA") {
+          // Limpiar lectura previa y marcar pendiente (backend deberá enviar valve-data)
+          setValvulas((prevValvulas) =>
+            prevValvulas.map((v) => (v.id === valvulaId ? { ...v, estado: newEstado, lastPressureReading: null } : v)),
+          )
+        } else {
+          // Al cerrar, limpiar la lectura local
+          setValvulas((prevValvulas) =>
+            prevValvulas.map((v) => (v.id === valvulaId ? { ...v, estado: newEstado, lastPressureReading: null, presion: 0 } : v)),
+          )
+        }
+
         showSuccess(`Válvula ${message}`, `${valvula.nombre} ha sido ${message} correctamente`)
       } else {
         setValvulas((prevValvulas) =>
@@ -287,7 +345,7 @@ export function ValvulasControl() {
     showSuccess("Actualizado", "Estado de las válvulas actualizado")
   }
 
-  const activeValvulas = filteredValvulas.filter((v) => v.estado === "ABIERTA")
+  const activeValvulas = filteredValvulas.filter((v) => String(v.estado).toUpperCase() === "ABIERTA")
   const maintenanceValvulas = filteredValvulas.filter((v) => v.isActive === false)
   const totalFlow = activeValvulas.reduce((sum, v) => sum + (v.caudal || 0), 0)
 
@@ -335,7 +393,7 @@ export function ValvulasControl() {
       setValvulaTimers((prev) => {
         const updated: { [id: number]: number } = { ...prev }
         filteredValvulas.forEach((v) => {
-          if (v.estado === "ABIERTA") {
+          if (String(v.estado).toUpperCase() === "ABIERTA") {
             updated[v.id] = (updated[v.id] || 0) + 1
             changed = true
           }
@@ -395,7 +453,7 @@ export function ValvulasControl() {
   const allValvulasLoteOn =
     selectedLoteId !== "all" &&
     filteredValvulas.length > 0 &&
-    filteredValvulas.every((v) => v.loteId?.toString() === selectedLoteId && v.estado === "ABIERTA")
+  filteredValvulas.every((v) => v.loteId?.toString() === selectedLoteId && String(v.estado).toUpperCase() === "ABIERTA")
 
   return (
     <div className="space-y-8 p-6 max-w-7xl mx-auto">
@@ -602,11 +660,11 @@ export function ValvulasControl() {
                       </CardDescription>
                     </div>
                   </div>
-                  <div
+                    <div
                     className={`w-4 h-4 rounded-full ${
-                      valvula.estado === "ABIERTA"
+                      String(valvula.estado).toUpperCase() === "ABIERTA"
                         ? "bg-blue-500 animate-pulse shadow-lg"
-                        : valvula.estado === "ERROR"
+                        : String(valvula.estado).toUpperCase() === "ERROR"
                           ? "bg-red-600"
                           : "bg-slate-400"
                     }`}
@@ -617,11 +675,28 @@ export function ValvulasControl() {
               <CardContent className="space-y-6 px-6 pb-6">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="text-center space-y-1">
-                    <div className="text-4xl font-bold text-blue-600">{(valvula.caudal || 0).toFixed(1)}</div>
-                    <div className="text-sm text-slate-600 font-medium">G/min</div>
+                    {/* Mostrar caudal estimado cuando haya lectura de presión válida */}
+                    {(() => {
+                      const pressure = (valvula as any).lastPressureReading ?? valvula.presion
+                      const hasPressure = typeof pressure === "number" && !Number.isNaN(pressure) && pressure > 0
+                      const estimated = hasPressure ? estimateFlowFromPressure(pressure) : 0
+                      // Mostrar estimado solo si hay lectura; si no, mostrar 0.0
+                      return (
+                        <>
+                          <div className="text-4xl font-bold text-blue-600">{hasPressure ? estimated.toFixed(1) : (0).toFixed(1)}</div>
+                          <div className="text-sm text-slate-600 font-medium">L/min</div>
+                        </>
+                      )
+                    })()}
                   </div>
                   <div className="text-center space-y-1">
-                    <div className="text-4xl font-bold text-slate-700">{(valvula.presion || 0).toFixed(1)}</div>
+                    <div className="text-4xl font-bold text-slate-700">
+                      {String(valvula.estado).toUpperCase() === "ABIERTA"
+                        ? ((typeof (valvula as any).lastPressureReading === "number")
+                            ? ((valvula as any).lastPressureReading).toFixed(1)
+                            : "...")
+                        : "--"}
+                    </div>
                     <div className="text-sm text-slate-600 font-medium">PSI</div>
                   </div>
                 </div>
@@ -633,36 +708,42 @@ export function ValvulasControl() {
                       className={`px-3 py-1 font-medium ${
                         valvula.estado === "ABIERTA"
                           ? "bg-green-600 text-white hover:bg-green-700"
-                          : valvula.estado === "ERROR"
+                          : String(valvula.estado).toUpperCase() === "ERROR"
                             ? "bg-red-600 text-white"
                             : "bg-slate-500 text-white"
                       }`}
                     >
-                      {valvula.estado === "ABIERTA" ? "Regando" : valvula.estado === "ERROR" ? "Error" : "Detenida"}
+                      {String(valvula.estado).toUpperCase() === "ABIERTA" ? "Regando" : String(valvula.estado).toUpperCase() === "ERROR" ? "Error" : "Detenida"}
                     </Badge>
                   </div>
 
                   <div className="flex items-center justify-between py-2">
                     <span className="text-sm font-medium text-slate-700">Caudal máx:</span>
-                    <span className="text-sm font-semibold text-slate-800">{(valvula.caudal || 0) * 1.25} L/min</span>
+                    {(() => {
+                      const pressure = (valvula as any).lastPressureReading ?? valvula.presion
+                      const hasPressure = typeof pressure === "number" && !Number.isNaN(pressure) && pressure > 0
+                      const estimated = hasPressure ? estimateFlowFromPressure(pressure) : 0
+                      const maxEstimated = (estimated * 1.25)
+                      return <span className="text-sm font-semibold text-slate-800">{maxEstimated.toFixed(1)} L/min</span>
+                    })()}
                   </div>
 
                   {/* QUITAR RENDIMIENTO */}
                   {/* <div className="flex items-center justify-between py-2">
                     <span className="text-sm font-medium text-slate-700">Rendimiento:</span>
                     <span className="text-sm font-semibold text-slate-800">
-                      {valvula.estado === "ABIERTA" ? "81%" : "0%"}
+                      {String(valvula.estado).toUpperCase() === "ABIERTA" ? "81%" : "0%"}
                     </span>
                   </div>
                   <div className="space-y-2">
-                    <Progress value={valvula.estado === "ABIERTA" ? 81 : 0} className="h-2 bg-slate-200" />
+                    <Progress value={String(valvula.estado).toUpperCase() === "ABIERTA" ? 81 : 0} className="h-2 bg-slate-200" />
                   </div> */}
 
                   {/* NUEVO: Contador de tiempo encendida */}
                   <div className="flex items-center justify-between py-2">
                     <span className="text-sm font-medium text-slate-700">Tiempo encendida:</span>
                     <span className="text-sm font-semibold text-blue-700">
-                      {valvula.estado === "ABIERTA"
+                      {String(valvula.estado).toUpperCase() === "ABIERTA"
                         ? `${Math.floor((valvulaTimers[valvula.id] || 0) / 60)} min ${((valvulaTimers[valvula.id] || 0) % 60)} seg`
                         : "0 min"}
                     </span>
@@ -682,11 +763,11 @@ export function ValvulasControl() {
                 <div className="flex items-center justify-center pt-4">
                   <Button
                     size="lg"
-                    variant={valvula.estado === "ABIERTA" ? "destructive" : "default"}
+                    variant={String(valvula.estado).toUpperCase() === "ABIERTA" ? "destructive" : "default"}
                     onClick={() => handleToggleValvula(valvula.id)}
                     disabled={valvula.isActive === false || isValvulaLoading}
                     className={`min-w-[110px] h-11 font-semibold transition-all duration-200 ${
-                      valvula.estado === "ABIERTA"
+                        String(valvula.estado).toUpperCase() === "ABIERTA"
                         ? "bg-red-500 hover:bg-red-600 text-white shadow-lg"
                         : "bg-[#1C352D] hover:bg-[#0f1f19] text-white shadow-lg"
                     }`}
@@ -696,7 +777,7 @@ export function ValvulasControl() {
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Procesando...
                       </>
-                    ) : valvula.estado === "ABIERTA" ? (
+                    ) : String(valvula.estado).toUpperCase() === "ABIERTA" ? (
                       <>
                         <Square className="h-4 w-4 mr-2" />
                         Detener

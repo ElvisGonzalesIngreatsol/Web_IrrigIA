@@ -47,7 +47,7 @@ export function ValvulasManagement() {
     nombre: "",
     loteId: "",
     tipo: "aspersion",
-    estado: "ABIERTA",
+    estado: "CERRADA",
     caudal: "",
     presion: "",
     descripcion: "",
@@ -57,6 +57,8 @@ export function ValvulasManagement() {
     needsMaintenance: false,
     maintenanceDate: "",
     maintenanceNotes: "",
+    lastPressureReading: null as number | null,
+    lastPressureReadingTime: null as string | null,
   })
 
   const fetchData = useCallback(async () => {
@@ -135,7 +137,7 @@ export function ValvulasManagement() {
       nombre: "",
       loteId: "",
       tipo: "aspersion",
-      estado: "ABIERTA",
+      estado: "CERRADA",
       caudal: "",
       presion: "",
       descripcion: "",
@@ -145,6 +147,8 @@ export function ValvulasManagement() {
       needsMaintenance: false,
       maintenanceDate: "",
       maintenanceNotes: "",
+      lastPressureReading: null,
+      lastPressureReadingTime: null,
     })
     setEditingValvula(null)
   }
