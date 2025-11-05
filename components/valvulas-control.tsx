@@ -295,10 +295,48 @@ export function ValvulasControl() {
 
     setLoadingValvulas((prev) => new Set(prev).add(valvulaId))
 
-  const newEstado = String(valvula.estado).toUpperCase() === "ABIERTA" ? "CERRADA" : "ABIERTA"
+    const newEstado = String(valvula.estado).toUpperCase() === "ABIERTA" ? "CERRADA" : "ABIERTA"
     setValvulas((prevValvulas) => prevValvulas.map((v) => (v.id === valvulaId ? { ...v, estado: newEstado } : v)))
 
     try {
+      // Si estamos cerrando la válvula, guardar el historial antes de enviar el comando
+      if (newEstado === "CERRADA") {
+        const lote = lotes.find((l) => l.id === valvula.loteId)
+        const pressure = (valvula as any).lastPressureReading ?? valvula.presion
+        const hasPressure = typeof pressure === "number" && !Number.isNaN(pressure) && pressure > 0
+        const estimatedFlow = hasPressure ? estimateFlowFromPressure(pressure) : 0
+        const timeInMinutes = Math.floor((valvulaTimers[valvula.id] || 0) / 60)
+
+        try {
+          const historialPayload = {
+              valvulaNombre: valvula.nombre,
+              loteNombre: lote?.nombre || "No especificado",
+              caudal: estimatedFlow,
+              presion: pressure || 0,
+              tiempoOperacion: timeInMinutes,
+              // Campos adicionales que podrían ser útiles
+              valvulaId: valvula.id,
+              loteId: valvula.loteId,
+              fincaId: valvula.fincaId,
+              timestamp: new Date().toISOString()
+          };
+          
+          console.log("Guardando historial de válvula:", {
+            valvula: valvula.nombre,
+            estado: "CERRADA",
+            payload: historialPayload
+          });
+          
+          await apiService.request("/api/historial", {
+            method: "POST",
+            body: JSON.stringify(historialPayload)
+          })
+        } catch (historialError) {
+          console.error("Error guardando historial:", historialError)
+          // No bloqueamos la operación principal si falla el guardado del historial
+        }
+      }
+
       const action = newEstado
       const response = await apiService.controlValvula(valvulaId, action)
 

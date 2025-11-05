@@ -26,9 +26,43 @@ import Swal from "sweetalert2"
 
 export function CalendarioRiego() {
   const { schedules, fincas, addSchedule, updateSchedule, deleteSchedule } = useData()
+  const [apiSchedules, setApiSchedules] = useState<any[]>([])
+  const [loadingSchedules, setLoadingSchedules] = useState(false)
   const { user } = useAuth()
   const { addNotification } = useNotifications()
   const [showAddDialog, setShowAddDialog] = useState(false)
+
+  // Cargar programas de riego desde la API
+  const fetchSchedules = async () => {
+    setLoadingSchedules(true)
+    try {
+      const response = await apiService.request("/api/riego")
+      const payload = response?.data ?? response
+      let schedulesArr: any[] = []
+      
+      if (Array.isArray(payload)) {
+        schedulesArr = payload
+      } else if (payload && typeof payload === 'object' && 'data' in payload && Array.isArray((payload as any).data)) {
+        schedulesArr = payload.data as any[]
+      }
+      
+      setApiSchedules(schedulesArr)
+    } catch (error) {
+      console.error("Error loading schedules:", error)
+      addNotification({
+        type: "error",
+        title: "Error",
+        message: "No se pudieron cargar los programas de riego",
+        duration: 3000
+      })
+    } finally {
+      setLoadingSchedules(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchSchedules()
+  }, [])
   const [selectedFinca, setSelectedFinca] = useState("")
   const [selectedLote, setSelectedLote] = useState("")
   // Agregar la nueva vista semanal
@@ -36,8 +70,10 @@ export function CalendarioRiego() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [newSchedule, setNewSchedule] = useState({
     nombre: "",
+    lote: "",
     loteId: "",
-    valvulaIds: [] as string[],
+    finca: "",
+    valvulaIds: [] as (string | number)[],
     startDate: "",
     startTime: "",
     duration: 30,
@@ -60,7 +96,7 @@ export function CalendarioRiego() {
   const generateHourLabels = () => {
     const hours = []
     for (let i = 0; i < 24; i++) {
-      hours.push(`${i}:00`)
+      hours.push(`${i.toString().padStart(2, '0')}:00`)
     }
     return hours
   }
@@ -79,18 +115,57 @@ export function CalendarioRiego() {
     return days
   }
 
-  // Función para obtener los programas de riego para un día específico
+  // Nueva función: obtiene una Date válida desde diferentes propiedades posibles del schedule
+  const extractScheduleDate = (schedule: any): Date | null => {
+    if (!schedule) return null
+    const candidates = [
+      schedule.nextExecution,
+      schedule.next_execution,
+      schedule.next_exec,
+      schedule.startDate && schedule.startTime ? `${schedule.startDate}T${schedule.startTime}` : null,
+      schedule.start_date && schedule.start_time ? `${schedule.start_date}T${schedule.start_time}` : null,
+      schedule.datetime,
+      schedule.date,
+    ]
+    for (const c of candidates) {
+      if (!c) continue
+      const d = new Date(c)
+      if (!isNaN(d.getTime())) return d
+    }
+    return null
+  }
+
+  // Función para obtener los programas de riego para un día específico (usa filteredSchedules para respetar permisos)
   const getSchedulesForDay = (date: Date) => {
-    return schedules.filter((schedule) => {
-      const scheduleDate = new Date(schedule.nextExecution)
-      return scheduleDate.toDateString() === date.toDateString()
+    return filteredSchedules.filter((schedule) => {
+      const scheduleDate = extractScheduleDate(schedule)
+      if (!scheduleDate) return false
+      // comparar por componentes para evitar problemas de zona horaria
+      return (
+        scheduleDate.getFullYear() === date.getFullYear() &&
+        scheduleDate.getMonth() === date.getMonth() &&
+        scheduleDate.getDate() === date.getDate() &&
+        (schedule.isActive ?? true)
+      )
     })
   }
 
   // Función para obtener la posición y altura del evento en la grilla
-  const getEventPosition = (startTime: string) => {
-    const [hours, minutes] = startTime.split(":").map(Number)
-    const topPosition = (hours * 60 + minutes) * (100 / 1440) // (minutos desde medianoche * altura por minuto)
+  const getEventPosition = (scheduleOrTime: any) => {
+    // Puede recibir un string "HH:MM" o el objeto schedule
+    let startTime = ""
+    if (typeof scheduleOrTime === "string") {
+      startTime = scheduleOrTime
+    } else if (scheduleOrTime) {
+      startTime = scheduleOrTime.startTime || scheduleOrTime.start_time || ""
+      if (!startTime) {
+        const d = extractScheduleDate(scheduleOrTime)
+        if (d) startTime = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`
+      }
+    }
+    if (!startTime) return "0%"
+    const [hours, minutes] = startTime.split(":").map((v: string) => Number(v || 0))
+    const topPosition = ((hours * 60) + (minutes || 0)) * (100 / 1440) // porcentaje respecto a 24h
     return `${topPosition}%`
   }
 
@@ -265,10 +340,17 @@ export function CalendarioRiego() {
     return days
   }
 
+  // Reemplazo de getSchedulesForDate para usar filteredSchedules y la extracción robusta de fecha
   const getSchedulesForDate = (date: Date) => {
-    return schedules.filter((schedule) => {
-      const scheduleDate = new Date(schedule.nextExecution)
-      return scheduleDate.toDateString() === date.toDateString() && schedule.isActive
+    return filteredSchedules.filter((schedule) => {
+      const scheduleDate = extractScheduleDate(schedule)
+      if (!scheduleDate) return false
+      return (
+        scheduleDate.getFullYear() === date.getFullYear() &&
+        scheduleDate.getMonth() === date.getMonth() &&
+        scheduleDate.getDate() === date.getDate() &&
+        (schedule.isActive ?? true)
+      )
     })
   }
 
@@ -413,7 +495,9 @@ export function CalendarioRiego() {
           // limpieza y cierre del modal
           setNewSchedule({
             nombre: "",
+            lote: "",
             loteId: "",
+            finca: "",
             valvulaIds: [],
             startDate: "",
             startTime: "",
@@ -435,6 +519,8 @@ export function CalendarioRiego() {
             duration: 6000,
           })
         }
+
+        await fetchSchedules() // Actualizar la vista después de agregar
       }
     } catch (err) {
       console.error("Error al programar riego:", err)
@@ -466,7 +552,7 @@ export function CalendarioRiego() {
     }))
   }
 
-  const handleValvulaToggle = (valvulaId: string, checked: boolean) => {
+  const handleValvulaToggle = (valvulaId: string | number, checked: boolean) => {
     setNewSchedule((prev) => ({
       ...prev,
       valvulaIds: checked ? [...prev.valvulaIds, valvulaId] : prev.valvulaIds.filter((id) => id !== valvulaId),
@@ -507,30 +593,58 @@ export function CalendarioRiego() {
     }
   }
 
+  const formatScheduleTitle = (schedule: any) => {
+    const parts = [
+      schedule.nombre,
+      schedule.lote && `Lote: ${schedule.lote}`,
+      schedule.duration && `${schedule.duration}min`,
+      schedule.finca && `Finca: ${schedule.finca}`
+    ].filter(Boolean)
+    return parts.join(" - ")
+  }
+
   const filteredSchedules = useMemo(() => {
-    if (user?.role === "ADMIN") {
-      return schedules
+    let filtered = apiSchedules
+
+    if (user?.role !== "ADMIN") {
+      const userFincaIds = userFincas.map((f: any) => String(f.id))
+      filtered = filtered.filter((schedule) => 
+        userFincaIds.includes(String(schedule.fincaId))
+      )
     }
 
-    // For client users, only show schedules from their assigned fincas
-    const userFincaIds = userFincas.map((f: any) => f.id)
-    return schedules.filter((schedule) => {
-      const valvulaInfo = getValvulaInfo(schedule.valvulaId)
-      return (
-        valvulaInfo &&
-        userFincaIds.some((fincaId: any) => {
-          const finca = fincasData.find((f: any) => f.id === fincaId)
-          // protege si no hay lotes o la estructura no es la esperada
-          if (!finca || !Array.isArray(finca.lotes)) return false
-          return finca.lotes.some((l: any) => {
-            // protege si l.valvulas no es un array
-            if (!l || !Array.isArray(l.valvulas)) return false
-            return l.valvulas.some((v: any) => v.id === schedule.valvulaId)
-          })
-        })
-      )
-    })
-  }, [schedules, user, userFincas, fincasData])
+    return filtered
+  }, [apiSchedules, user, userFincas])
+
+  // Helper: parsear de forma segura nextExecution (puede ser Date o string)
+  const toDateSafe = (value: any): Date | null => {
+    if (!value && value !== 0) return null
+    if (value instanceof Date) {
+      if (isNaN(value.getTime())) return null
+      return value
+    }
+    try {
+      const d = new Date(value)
+      if (isNaN(d.getTime())) return null
+      return d
+    } catch (_e) {
+      return null
+    }
+  }
+
+  const nextExecutionDisplay = useMemo(() => {
+    const active = filteredSchedules.filter((s) => s.isActive)
+    const times: number[] = active
+      .map((s) => {
+        const d = toDateSafe(s.nextExecution)
+        return d ? d.getTime() : NaN
+      })
+      .filter((t) => !isNaN(t)) as number[]
+
+    if (times.length === 0) return "--:--"
+    const min = Math.min(...times)
+    return new Date(min).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  }, [filteredSchedules])
 
   const activeSchedules = filteredSchedules.filter((s) => s.isActive).length
   const totalSchedules = filteredSchedules.length
@@ -552,7 +666,7 @@ export function CalendarioRiego() {
 
   const dayNames = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"]
 
-  const handleToggleSchedule = (scheduleId: string | number, checked: boolean) => {
+  const handleToggleSchedule = async (scheduleId: string | number, checked: boolean) => {
     updateSchedule(String(scheduleId), { isActive: checked })
     addNotification({
       type: "success",
@@ -560,9 +674,10 @@ export function CalendarioRiego() {
       message: `El programa de riego ha sido ${checked ? "activado" : "desactivado"} exitosamente`,
       duration: 3000,
     })
+    await fetchSchedules() // Actualizar la vista después de modificar
   }
 
-  const handleDeleteSchedule = (scheduleId: string) => {
+  const handleDeleteSchedule = async (scheduleId: string) => {
     deleteSchedule(scheduleId)
     addNotification({
       type: "success",
@@ -570,27 +685,32 @@ export function CalendarioRiego() {
       message: "El programa de riego ha sido eliminado exitosamente",
       duration: 3000,
     })
+    await fetchSchedules() // Actualizar la vista después de eliminar
   }
 
   // Función para abrir el modal de edición
   const openEditSchedule = (schedule: any) => {
-    setEditingSchedule(schedule)
-    setShowAddDialog(true)
-    setSelectedFinca(schedule.fincaId?.toString() || "")
-    setSelectedLote(schedule.loteId?.toString() || "")
-    setNewSchedule({
-      nombre: schedule.nombre || "",
-      loteId: schedule.loteId?.toString() || "",
-      valvulaIds: [schedule.valvulaId?.toString()],
-      startDate: schedule.startDate || "",
-      startTime: schedule.startTime || "",
-      duration: schedule.duration || 30,
-      frequency: schedule.frequency || "once",
-      endDate: schedule.endDate || "",
-      selectedWeekday: schedule.weekdays && Array.isArray(schedule.weekdays) && schedule.weekdays.length > 0 ? String(schedule.weekdays[0]) : (schedule.selectedWeekday ? String(schedule.selectedWeekday) : ""),
-      isActive: schedule.isActive ?? true,
-    })
-  }
+      setEditingSchedule(schedule)
+      setShowAddDialog(true)
+      setSelectedFinca(schedule.fincaId?.toString() || "")
+      setSelectedLote(schedule.loteId?.toString() || "")
+      setNewSchedule({
+        nombre: schedule.nombre || "",
+        lote: schedule.lote || schedule.loteName || "",
+        finca: schedule.finca || schedule.fincaName || "",
+        loteId: schedule.loteId?.toString() || "",
+        valvulaIds: Array.isArray(schedule.valvulaIds)
+          ? schedule.valvulaIds.map((v: any) => Number(v))
+          : (schedule.valvulaId ? [Number(schedule.valvulaId)] : []),
+        startDate: schedule.startDate || "",
+        startTime: schedule.startTime || "",
+        duration: schedule.duration || 30,
+        frequency: schedule.frequency || "once",
+        endDate: schedule.endDate || "",
+        selectedWeekday: schedule.weekdays && Array.isArray(schedule.weekdays) && schedule.weekdays.length > 0 ? String(schedule.weekdays[0]) : (schedule.selectedWeekday ? String(schedule.selectedWeekday) : ""),
+        isActive: schedule.isActive ?? true,
+      })
+    }
 
   // Función para eliminar con confirmación
   const confirmDeleteSchedule = (scheduleId: string | number) => {
@@ -620,31 +740,32 @@ export function CalendarioRiego() {
     const loteObj = lotesData.find((l) => l.id?.toString() === selectedLote?.toString())
     if (loteObj && Array.isArray(loteObj.valvulas) && loteObj.valvulas.length > 0) {
       setValvulasData(loteObj.valvulas)
-    } else {
-      // Si no tiene valvulas, intenta cargar por API (por si el backend no las incluye en el lote)
-      apiService.request(`/api/valvulas/lote/${selectedLote}`)
-        .then((resp) => {
-          // Normalizar la respuesta: puede venir como array directo o como { data: { data: [...] } } u otras variantes.
-          const payload: any = (resp && typeof resp === "object" && "data" in resp) ? (resp as any).data : resp
-          const valvulasArr =
-            Array.isArray(payload?.data)
-              ? payload.data
-              : Array.isArray(payload)
-                ? payload
-                : []
-          setValvulasData(valvulasArr)
-        })
-        .catch(() => setValvulasData([]))
+      return
     }
+    // Si no tiene valvulas, intenta cargar por API (por si el backend no las incluye en el lote)
+    apiService.request(`/api/valvulas/lote/${selectedLote}`)
+      .then((resp) => {
+        // Normalizar la respuesta: puede venir como array directo o como { data: { data: [...] } } u otras variantes.
+        const payload: any = (resp && typeof resp === "object" && "data" in resp) ? (resp as any).data : resp
+        const valvulasArr =
+          Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload)
+              ? payload
+              : []
+        setValvulasData(valvulasArr)
+      })
+      .catch(() => setValvulasData([]))
   }, [selectedLote, lotesData])
 
-  // Función para limpiar todos los campos y selecciones del formulario
   const resetScheduleForm = () => {
     setSelectedFinca("")
     setSelectedLote("")
     setValvulasData([])
     setNewSchedule({
       nombre: "",
+      lote: "",
+      finca: "",
       loteId: "",
       valvulaIds: [],
       startDate: "",
@@ -656,6 +777,21 @@ export function CalendarioRiego() {
       isActive: true,
     })
   }
+
+  // Función para agrupar riegos por hora
+    const groupSchedulesByTime = (schedules: any[]): Record<string, any[]> => {
+      const groups = schedules.reduce((acc, schedule) => {
+        const time = schedule.startTime ||
+                     (extractScheduleDate(schedule)?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) ||
+                     '00:00'
+        if (!acc[time]) {
+          acc[time] = []
+        }
+        acc[time].push(schedule)
+        return acc
+      }, {} as Record<string, any[]>)
+      return groups
+    }
 
   return (
     <div className="space-y-8 p-6">
@@ -1055,11 +1191,7 @@ export function CalendarioRiego() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="text-3xl font-bold text-blue-600 mb-2">
-              {filteredSchedules.filter((s) => s.isActive).length > 0
-                ? new Date(
-                  Math.min(...filteredSchedules.filter((s) => s.isActive).map((s) => s.nextExecution.getTime())),
-                ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : "--:--"}
+              {nextExecutionDisplay}
             </div>
             <p className="text-sm text-muted-foreground">siguiente riego programado</p>
           </CardContent>
@@ -1090,12 +1222,12 @@ export function CalendarioRiego() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="flex">
-              {/* Columna de horas */}
-              <div className="w-20 border-r">
-                <div className="h-12"></div> {/* Espacio para el header de días */}
+              {/* Columna de horas - ajustada para mejor alineación */}
+              <div className="w-20 border-r flex-shrink-0">
+                <div className="h-16"></div> {/* Espacio para el header de días */}
                 {generateHourLabels().map((hour) => (
-                  <div key={hour} className="h-12 border-b text-xs text-muted-foreground pr-2 text-right">
-                    {hour}
+                  <div key={hour} className="h-12 border-b flex items-center justify-end pr-2">
+                    <span className="text-xs text-muted-foreground">{hour}</span>
                   </div>
                 ))}
               </div>
@@ -1107,14 +1239,14 @@ export function CalendarioRiego() {
                   {getWeekDays().map((day, index) => (
                     <div
                       key={index}
-                      className={`h-12 border-b border-r p-2 text-center ${
+                      className={`h-16 border-b border-r p-2 text-center ${
                         day.toDateString() === new Date().toDateString() ? "bg-blue-50" : ""
                       }`}
                     >
-                      <div className="text-sm font-medium">
+                      <div className="text-xs font-medium text-muted-foreground mb-1">
                         {day.toLocaleDateString('es', { weekday: 'short' }).toUpperCase()}
                       </div>
-                      <div className={`text-2xl ${
+                      <div className={`text-xl ${
                         day.toDateString() === new Date().toDateString() ? "text-blue-600" : ""
                       }`}>
                         {day.getDate()}
@@ -1143,28 +1275,38 @@ export function CalendarioRiego() {
                         ></div>
                       ))}
 
-                      {/* Renderizar programas de riego */}
-                      {getSchedulesForDay(day).map((schedule, index) => {
-                        const valvulaInfo = getValvulaInfo(schedule.valvulaId)
+                      {/* Renderizar programas de riego dentro del cuadro del día */}
+                      {getSchedulesForDay(day).slice(0, 2).map((schedule, index) => {
+                        const colorClass = getScheduleColor(schedule, index) // Obtener el color del evento
                         return (
                           <div
                             key={schedule.id}
-                            className="absolute left-0 right-1 p-1 rounded text-white text-xs"
-                            style={{
-                              top: getEventPosition(schedule.startTime),
-                              height: `${(schedule.duration / 15)}%`,
-                              backgroundColor: getScheduleColor(schedule, index),
-                              zIndex: 10
-                            }}
+                            className={`p-2 mb-1 rounded-md text-white text-xs font-medium ${colorClass} hover:opacity-90 transition-opacity`}
                             onClick={(e) => {
                               e.stopPropagation()
                               Swal.fire({
                                 title: "Programa de Riego",
                                 html: `
                                   <div style='text-align:left'>
-                                    <b>Válvula:</b> ${valvulaInfo?.nombre || valvulaInfo?.name}<br/>
-                                    <b>Hora:</b> ${schedule.startTime}<br/>
-                                    <b>Duración:</b> ${schedule.duration} min<br/>
+                                    <div class="text-lg font-bold mb-2">${schedule.nombre || schedule.name || ""}</div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <div class="font-semibold">Lote:</div>
+                                        <div>${schedule.loteName || schedule.lote || ""}</div>
+                                      </div>
+                                      <div>
+                                        <div class="font-semibold">Finca:</div>
+                                        <div>${schedule.fincaName || schedule.finca || ""}</div>
+                                      </div>
+                                      <div>
+                                        <div class="font-semibold">Hora:</div>
+                                        <div>${schedule.startTime || (extractScheduleDate(schedule) ? extractScheduleDate(schedule)!.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "")}</div>
+                                      </div>
+                                      <div>
+                                        <div class="font-semibold">Duración:</div>
+                                        <div>${schedule.duration} min</div>
+                                      </div>
+                                    </div>
                                   </div>
                                 `,
                                 showCancelButton: true,
@@ -1183,10 +1325,43 @@ export function CalendarioRiego() {
                               })
                             }}
                           >
-                            {valvulaInfo?.nombre || valvulaInfo?.name}
+                            <div className="truncate">{schedule.nombre || schedule.name}</div>
+                            <div className="truncate">{schedule.loteName || schedule.lote}</div>
+                            <div className="mt-1">{schedule.duration} min</div>
                           </div>
                         )
                       })}
+
+                      {/* Mostrar el indicador "+N" si hay más de 2 eventos */}
+                      {getSchedulesForDay(day).length > 2 && (
+                        <div
+                          className="p-2 mt-1 rounded-md bg-gray-200 text-gray-700 text-xs font-medium cursor-pointer hover:bg-gray-300"
+                          onClick={() => {
+                            const allSchedulesHtml = getSchedulesForDay(day).map(s => `
+                              <div class="mb-4 pb-3 border-b">
+                                <div class="font-bold">${s.nombre}</div>
+                                <div>Lote: ${s.loteName}</div>
+                                <div>Hora: ${s.startTime}</div>
+                                <div>Duración: ${s.duration} min</div>
+                                <div>Frecuencia: ${getFrequencyText(s.frequency)}</div>
+                              </div>
+                            `).join('')
+
+                            Swal.fire({
+                              title: "Todos los Programas",
+                              html: `
+                                <div style='text-align:left; max-height: 400px; overflow-y: auto;'>
+                                  ${allSchedulesHtml}
+                                </div>
+                              `,
+                              confirmButtonText: "Cerrar",
+                              confirmButtonColor: "#1C352D",
+                            })
+                          }}
+                        >
+                          +{getSchedulesForDay(day).length - 2} más
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1245,45 +1420,67 @@ export function CalendarioRiego() {
                       {date.getDate()}
                     </div>
                     <div className="space-y-1">
-                      {daySchedules.slice(0, 3).map((schedule, scheduleIndex) => {
-                        const valvulaInfo = getValvulaInfo(schedule.valvulaId)
-                        return (
-                          <div
-                            key={schedule.id}
-                            className={`text-xs p-1 rounded text-white font-medium ${getScheduleColor(schedule, scheduleIndex)} cursor-pointer`}
-                            onClick={() => {
-                              // Mostrar opciones de editar/eliminar
-                              Swal.fire({
-                                title: "Programa de Riego",
-                                html: `
-                                  <div style='text-align:left'>
-                                    <b>Válvula:</b> ${valvulaInfo?.nombre || valvulaInfo?.name}<br/>
-                                    <b>Hora:</b> ${schedule.startTime}<br/>
-                                    <b>Duración:</b> ${schedule.duration} min<br/>
-                                  </div>
-                                `,
-                                showCancelButton: true,
-                                showDenyButton: true,
-                                confirmButtonText: "Editar",
-                                denyButtonText: "Eliminar",
-                                cancelButtonText: "Cerrar",
-                                confirmButtonColor: "#1C352D",
-                                denyButtonColor: "#F5C9B0",
-                              }).then((result) => {
-                                if (result.isConfirmed) {
-                                  openEditSchedule(schedule)
-                                } else if (result.isDenied) {
-                                  confirmDeleteSchedule(schedule.id)
-                                }
-                              })
-                            }}
-                          >
-                            {schedule.startTime} {valvulaInfo?.nombre || valvulaInfo?.name}
-                          </div>
-                        )
-                      })}
+                      {daySchedules.slice(0, 3).map((schedule, scheduleIndex) => (
+                        <div
+                          key={schedule.id}
+                          className={`text-xs p-2 rounded text-white font-medium ${getScheduleColor(schedule, scheduleIndex)} cursor-pointer`}
+                          onClick={() => {
+                            // Mostrar detalles de todos los riegos del día
+                            const allSchedulesHtml = daySchedules.map(s => `
+                              <div class="mb-4 pb-3 border-b">
+                                <div class="font-bold">${s.nombre}</div>
+                                <div>Lote: ${s.loteName}</div>
+                                <div>Hora: ${s.startTime}</div>
+                                <div>Duración: ${s.duration} min</div>
+                                <div>Frecuencia: ${getFrequencyText(s.frequency)}</div>
+                              </div>
+                            `).join('')
+
+                            Swal.fire({
+                              title: "Programas de Riego",
+                              html: `
+                                <div style='text-align:left; max-height: 400px; overflow-y: auto;'>
+                                  ${allSchedulesHtml}
+                                </div>
+                              `,
+                              confirmButtonText: "Cerrar",
+                              confirmButtonColor: "#1C352D",
+                            })
+                          }}
+                        >
+                          <div className="font-bold">{schedule.nombre}</div>
+                          <div>{schedule.loteName}</div>
+                          <div>{schedule.duration} min</div>
+                        </div>
+                      ))}
                       {daySchedules.length > 3 && (
-                        <div className="text-xs text-muted-foreground font-medium">+{daySchedules.length - 3} más</div>
+                        <div 
+                          className="text-xs p-2 rounded bg-gray-100 text-gray-600 font-medium cursor-pointer hover:bg-gray-200"
+                          onClick={() => {
+                            const allSchedulesHtml = daySchedules.map(s => `
+                              <div class="mb-4 pb-3 border-b">
+                                <div class="font-bold">${s.nombre}</div>
+                                <div>Lote: ${s.loteName}</div>
+                                <div>Hora: ${s.startTime}</div>
+                                <div>Duración: ${s.duration} min</div>
+                                <div>Frecuencia: ${getFrequencyText(s.frequency)}</div>
+                              </div>
+                            `).join('')
+
+                            Swal.fire({
+                              title: "Todos los Programas",
+                              html: `
+                                <div style='text-align:left; max-height: 400px; overflow-y: auto;'>
+                                  ${allSchedulesHtml}
+                                </div>
+                              `,
+                              confirmButtonText: "Cerrar",
+                              confirmButtonColor: "#1C352D",
+                            })
+                          }}
+                        >
+                          +{daySchedules.length - 3} programas más
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1320,16 +1517,26 @@ export function CalendarioRiego() {
                         </div>
                         <div className="space-y-2">
                           <p className="font-semibold text-base">
-                            {valvulaInfo?.name} - {valvulaInfo?.loteName}
+                            {schedule.nombre}
                           </p>
-                          {user?.role === "ADMIN" && (
-                            <p className="text-sm text-muted-foreground">Finca: {valvulaInfo?.fincaName}</p>
-                          )}
                           <p className="text-sm text-muted-foreground">
-                            {schedule.startTime} • {schedule.duration} min • {getFrequencyText(schedule.frequency)}
+                            Finca: {schedule.finca}
                           </p>
+                          <p className="text-sm font-medium">
+                            Lote: {schedule.lote}
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="font-semibold">{schedule.startTime}</span>
+                            <span>•</span>
+                            <span>{schedule.duration} min</span>
+                            <span>•</span>
+                            <span>{getFrequencyText(schedule.frequency)}</span>
+                          </div>
                           <p className="text-xs text-muted-foreground">
-                            Próxima ejecución: {schedule.nextExecution.toLocaleString()}
+                            Próxima ejecución: {(() => {
+                              const d = toDateSafe(schedule.nextExecution)
+                              return d ? d.toLocaleString() : "--"
+                            })()}
                           </p>
                         </div>
                       </div>
