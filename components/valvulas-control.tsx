@@ -327,7 +327,7 @@ export function ValvulasControl() {
             payload: historialPayload
           });
           
-          await apiService.request("/api/historial", {
+          await apiService.request("/api/valvulas/historial", {
             method: "POST",
             body: JSON.stringify(historialPayload)
           })

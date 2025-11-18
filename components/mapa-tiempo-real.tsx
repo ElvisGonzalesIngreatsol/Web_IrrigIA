@@ -3,15 +3,17 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useData } from "@/contexts/data-context"
 import { useAuth } from "@/contexts/auth-context"
 import { useNotifications } from "./notification-system"
 import { Droplets, Thermometer, Activity, RefreshCw, Maximize2, Eye, MapPin } from "lucide-react"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { GoogleMap } from "./google-map"
+import apiService from "@/lib/api"
 
 export function MapaTiempoReal() {
-  const { fincas } = useData()
+  // fincas obtenidas desde la API (no desde data-context)
+  const [fincasApi, setFincasApi] = useState<any[]>([])
+  const [loadingFincas, setLoadingFincas] = useState(false)
   const { user } = useAuth()
   const { addNotification } = useNotifications()
   const [selectedFinca, setSelectedFinca] = useState<string | null>(null)
@@ -19,12 +21,49 @@ export function MapaTiempoReal() {
   const [mapCenter, setMapCenter] = useState({ lat: 4.711, lng: -74.0721 })
   const [mapZoom, setMapZoom] = useState(10)
 
-  const userFincas = useMemo(() => {
-    if (user?.role === "ADMIN") {
-      return fincas
+  // Cargar fincas desde la API al montar
+  useEffect(() => {
+    const fetchFincas = async () => {
+      setLoadingFincas(true)
+      try {
+        const resp = await apiService.getAllFincas()
+        const payload: any = resp?.data ?? resp
+        let arr: any[] = []
+        if (Array.isArray(payload)) arr = payload
+        else if (payload && Array.isArray(payload.data)) arr = payload.data
+        else if (payload && Array.isArray(payload.results)) arr = payload.results
+
+        // Normalizar campos importantes
+        const normalized = arr.map((f: any) => ({
+          ...f,
+          id: f.id != null ? String(f.id) : f.id,
+          nombre: f.nombre ?? f.name,
+          location: f.location ?? f.ubicacion ?? f.address ?? "",
+          lotes: Array.isArray(f.lotes) ? f.lotes : f.lotes ?? [],
+          // mantener posibles coordenadas en distintas propiedades
+          mapCoordinates: f.mapCoordinates ?? f.coordinates ?? (f.latitude && f.longitude ? { lat: f.latitude, lng: f.longitude } : undefined),
+        }))
+        setFincasApi(normalized)
+      } catch (err) {
+        console.error("Error fetching fincas API:", err)
+        setFincasApi([])
+      } finally {
+        setLoadingFincas(false)
+      }
     }
-    return fincas.filter((finca) => user?.fincaId === finca.id || user?.fincaIds?.includes(finca.id))
-  }, [fincas, user?.role, user?.fincaId, user?.fincaIds])
+    fetchFincas()
+  }, [])
+
+  // Derivar fincas visibles para el usuario a partir de fincasApi
+  const userFincas = useMemo(() => {
+    if (!Array.isArray(fincasApi)) return []
+    if (user?.role === "ADMIN") {
+      return fincasApi
+    }
+    const userIds = Array.isArray(user?.fincaIds) ? user.fincaIds.map((id: any) => String(id)) : []
+    if (user?.fincaId != null) userIds.push(String(user.fincaId))
+    return fincasApi.filter((f) => userIds.includes(String(f.id)))
+  }, [fincasApi, user?.role, user?.fincaId, user?.fincaIds])
 
   // Memoizar la lógica de selección automática para evitar loops
   const autoSelectFinca = useCallback(() => {
@@ -73,12 +112,12 @@ export function MapaTiempoReal() {
   }
 
   const handleFocusOnFinca = (finca: any) => {
-    // Probar varios nombres de campo para coordenadas
+    
     const coords =
       finca.mapCoordinates ??
       finca.coordinates ??
-      (typeof finca.latitude === "number" && typeof finca.longitude === "number"
-        ? { lat: finca.latitude, lng: finca.longitude }
+      (typeof finca.lat === "number" && typeof finca.lng === "number"
+        ? { lat: finca.lat, lng: finca.lng }
         : null)
 
     if (coords && typeof coords.lat === "number" && typeof coords.lng === "number") {
@@ -261,8 +300,8 @@ export function MapaTiempoReal() {
           {userFincas.map((finca) => (
             <Button
               key={finca.id}
-              variant={selectedFinca === finca.id.toString() ? "default" : "outline"}
-              onClick={() => setSelectedFinca(finca.id.toString())}
+              variant={selectedFinca === String(finca.id) ? "default" : "outline"}
+              onClick={() => setSelectedFinca(String(finca.id))}
             >
               {finca.nombre}
             </Button>
@@ -277,23 +316,23 @@ export function MapaTiempoReal() {
             <CardTitle>Estadísticas del Mapa</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+              <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm">{user?.role === "ADMIN" ? "Total de Fincas:" : "Mis Fincas:"}</span>
                 <Badge variant="outline">{userFincas.length}</Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm">Total de Lotes:</span>
-                <Badge variant="outline">{userFincas.reduce((acc, f) => acc + (f.lotes?.length || 0), 0)}</Badge>
+                <Badge variant="outline">{userFincas.reduce((acc: number, f: any) => acc + (f.lotes?.length || 0), 0)}</Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm">Válvulas Activas:</span>
                 <Badge variant="default">
                   {userFincas.reduce(
-                    (acc, f) =>
+                    (acc: number, f: any) =>
                       acc +
                       (f.lotes?.reduce(
-                        (lAcc, l) => lAcc + (l.valvulas?.filter((v) => v.estado === "ABIERTA").length || 0),
+                        (lAcc: number, l: any) => lAcc + (l.valvulas?.filter((v: any) => v.estado === "ABIERTA").length || 0),
                         0,
                       ) || 0),
                     0,
@@ -304,10 +343,10 @@ export function MapaTiempoReal() {
                 <span className="text-sm">Sensores Online:</span>
                 <Badge variant="default">
                   {userFincas.reduce(
-                    (acc, f) =>
+                    (acc: number, f: any) =>
                       acc +
                       (f.lotes?.reduce(
-                        (lAcc, l) => lAcc + (l.sensors?.filter((s) => s.status === "online").length || 0),
+                        (lAcc: number, l: any) => lAcc + (l.sensors?.filter((s: any) => s.status === "online").length || 0),
                         0,
                       ) || 0),
                     0,

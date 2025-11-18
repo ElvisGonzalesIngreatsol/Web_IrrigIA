@@ -535,6 +535,91 @@ export function CalendarioRiego() {
     }
   }
 
+  // Función para editar un programa de riego
+  const handleEditSchedule = async () => {
+    if (
+      !newSchedule.loteId ||
+      newSchedule.valvulaIds.length === 0 ||
+      !newSchedule.startTime ||
+      !newSchedule.startDate
+    ) {
+      addNotification({
+        type: "error",
+        title: "Error",
+        message: "Por favor completa todos los campos requeridos incluyendo fecha y al menos una válvula",
+        duration: 3000,
+      })
+      return
+    }
+
+    const [year, month, day] = newSchedule.startDate.split("-").map(Number)
+    const [hours, minutes] = newSchedule.startTime.split(":").map(Number)
+    const nextExecutionDate = new Date(year, month - 1, day, hours, minutes, 0, 0)
+
+    if (nextExecutionDate < new Date()) {
+      addNotification({
+        type: "error",
+        title: "Error",
+        message: "La fecha y hora seleccionada debe ser futura",
+        duration: 3000,
+      })
+      return
+    }
+
+    setSubmittingSchedules(true)
+    try {
+      const schedulePayload: any = {
+        id: editingSchedule?.id, // ID del programa que se está editando
+        nombre: newSchedule.nombre,
+        loteId: Number(newSchedule.loteId),
+        valvulaIds: newSchedule.valvulaIds.map(id => Number(id)),
+        startDate: newSchedule.startDate,
+        startTime: newSchedule.startTime,
+        duration: newSchedule.duration,
+        frequency: newSchedule.frequency,
+        isActive: newSchedule.isActive,
+        endDate: newSchedule.endDate ? new Date(newSchedule.endDate).toISOString() : undefined,
+        weekdays: newSchedule.frequency === "weekly_weekday" && newSchedule.selectedWeekday
+          ? [Number(newSchedule.selectedWeekday)]
+          : undefined,
+      }
+
+      // Llamar a la API para actualizar el programa
+      const response = await apiService.request("/api/riego/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(schedulePayload),
+      })
+
+      if (response && (response as any).success === true) {
+        addNotification({
+          type: "success",
+          title: "Programa Actualizado",
+          message: "El programa de riego ha sido actualizado correctamente",
+          duration: 3000,
+        })
+
+        // Cerrar el modal y limpiar el formulario
+        setShowAddDialog(false)
+        setEditingSchedule(null)
+        resetScheduleForm()
+
+        // Actualizar la vista
+        await fetchSchedules()
+      }
+    } catch (err) {
+      console.error("Error al actualizar el programa de riego:", err)
+      addNotification({
+        type: "error",
+        title: "Error de conexión",
+        message: err instanceof Error ? err.message : "No se pudo conectar al servidor",
+        duration: 4000,
+      })
+    } finally {
+      setSubmittingSchedules(false)
+    }
+  }
+
   const handleFincaChange = (fincaId: string) => {
     setSelectedFinca(fincaId)
     setSelectedLote("")
@@ -1148,7 +1233,11 @@ export function CalendarioRiego() {
                 >
                   Cancelar
                 </Button>
-                <Button onClick={handleAddSchedule} className="px-6 py-2" disabled={submittingSchedules}>
+                <Button
+                  onClick={editingSchedule ? handleEditSchedule : handleAddSchedule}
+                  className="px-6 py-2"
+                  disabled={submittingSchedules}
+                >
                   {submittingSchedules ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />

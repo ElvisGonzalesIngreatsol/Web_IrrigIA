@@ -8,8 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { BarChart2, Table as TableIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import { apiService } from "@/lib/api"
-import { useAuth } from "@/contexts/auth-context"
-import { useData } from "@/contexts/data-context"
 import { Label } from "@/components/ui/label"
 
 
@@ -35,93 +33,84 @@ export function HistoricoDatos() {
   const [totalRecords, setTotalRecords] = useState(0)
   const [loadingLotes, setLoadingLotes] = useState(false)
   const [lotesData, setLotesData] = useState<any[]>([])
-  const { user } = useAuth()
-  const { fincas: dataFincas } = useData() as any
   const [fincasData, setFincasData] = useState<any[]>([])
   const [selectedFinca, setSelectedFinca] = useState("")
   const [selectedLote, setSelectedLote] = useState("")
-  const [newSchedule, setNewSchedule] = useState({
-    loteId: "",
-    valvulaIds: [] as string[],
-    nombre: ""
-  })
 
-  // Sincronizar fincas desde el contexto
+  // Cargar fincas desde el endpoint correcto del calendario de riego
   useEffect(() => {
-    if (Array.isArray(dataFincas)) {
-      const normalized = dataFincas.map((f: any) => ({ 
-        id: f.id?.toString(), 
-        nombre: f.nombre ?? f.name 
-      }))
-      setFincasData(normalized)
+    const fetchFincas = async () => {
+      try {
+        const resp = await apiService.request("/api/fincas")
+        const payload: any = resp?.data ?? resp
+        let fincas: any[] = []
 
-      // Auto-seleccionar finca para usuarios normales
-      if (user?.role === "USER") {
-        if (user.fincaId) {
-          setSelectedFinca(String(user.fincaId))
-        } else if (Array.isArray(user.fincaIds) && user.fincaIds.length === 1) {
-          setSelectedFinca(String(user.fincaIds[0]))
+        if (Array.isArray(payload)) {
+          fincas = payload
+        } else if (payload && Array.isArray(payload.data)) {
+          fincas = payload.data
+        } else if (payload && Array.isArray(payload.results)) {
+          fincas = payload.results
         }
-      }
-    }
-  }, [user, dataFincas])
 
-  // Fallback: si no hay fincas en el contexto, cargarlas desde el backend
-  useEffect(() => {
-    const fetchFincasFromApi = async () => {
-      if ((!Array.isArray(dataFincas) || dataFincas.length === 0) && fincasData.length === 0) {
-        try {
-          const resp = await apiService.getAllFincas()
-          const payload: any = resp?.data ?? resp
-          let arr: any[] = []
-          if (Array.isArray(payload)) arr = payload
-          else if (payload && Array.isArray(payload.data)) arr = payload.data
-          else if (payload && Array.isArray(payload.results)) arr = payload.results
-
-          const normalized = arr.map((f: any) => ({ id: String(f.id), nombre: f.nombre ?? f.name }))
-          setFincasData(normalized)
-        } catch (error) {
-          console.error("Error fetching fincas from API:", error)
-        }
+        const normalizedFincas = fincas.map((f: any) => ({
+          id: String(f.id),
+          nombre: f.nombre ?? f.name,
+        }))
+        setFincasData(normalizedFincas)
+      } catch (error) {
+        console.error("Error fetching fincas:", error)
       }
     }
 
-    fetchFincasFromApi()
-  }, [dataFincas, fincasData])
+    fetchFincas()
+  }, [])
 
+  // Cargar lotes desde la API
   useEffect(() => {
     const fetchLotes = async () => {
-      if (selectedFinca && selectedFinca !== "all") {
+      if (selectedFinca) {
+        setLoadingLotes(true)
         try {
           const resp = await apiService.request(`/api/lotes/all/${selectedFinca}`)
           const payload: any = resp?.data ?? resp
-          let arr: any[] = []
-          if (Array.isArray(payload)) arr = payload
-          else if (payload && Array.isArray(payload.data)) arr = payload.data
-          else if (payload && Array.isArray(payload.results)) arr = payload.results
-          setLotesData(arr || [])
+          let lotes: any[] = []
+
+          if (Array.isArray(payload)) {
+            lotes = payload
+          } else if (payload && Array.isArray(payload.data)) {
+            lotes = payload.data
+          } else if (payload && Array.isArray(payload.results)) {
+            lotes = payload.results
+          }
+
+          setLotesData(lotes)
         } catch (error) {
           console.error("Error fetching lotes:", error)
+        } finally {
+          setLoadingLotes(false)
         }
       } else {
         setLotesData([])
       }
     }
+
     fetchLotes()
   }, [selectedFinca])
 
+  // Cargar historial desde la API
   useEffect(() => {
     const fetchHistorial = async () => {
       setIsLoading(true)
       try {
         const queryParams = new URLSearchParams({
-          page: currentPage.toString(),
-          limit: pageSize.toString(),
-          ...(selectedFinca !== "all" && { fincaId: selectedFinca }),
-          ...(selectedLote !== "all" && { loteId: selectedLote })
+          //page: currentPage.toString(),
+          //limit: pageSize.toString(),
+          ...(selectedFinca && { fincaId: selectedFinca }),
+          ...(selectedLote && { loteId: selectedLote }),
         })
 
-        const resp = await apiService.request(`/api/historial?${queryParams}`)
+        const resp = await apiService.request(`/api/valvulas/historial?${queryParams}`)
         const payload: any = resp?.data ?? resp
         let records: HistorialRecord[] = []
         let total = 0
@@ -142,14 +131,15 @@ export function HistoricoDatos() {
           }
         }
 
-        setHistorialData(records || [])
-        setTotalRecords(total || 0)
+        setHistorialData(records)
+        setTotalRecords(total)
       } catch (error) {
         console.error("Error fetching historial:", error)
       } finally {
         setIsLoading(false)
       }
     }
+
     fetchHistorial()
   }, [currentPage, pageSize, selectedFinca, selectedLote])
 
@@ -160,49 +150,14 @@ export function HistoricoDatos() {
       setCurrentPage(newPage)
     }
   }
-  const userFincas = useMemo(() => {
-    if (user?.role === "ADMIN") {
-      return fincasData
-    }
-
-    // Comparar ids como strings para evitar mismatch number/string
-    const assignedFincas = (() => {
-      if (user?.fincaIds && Array.isArray(user.fincaIds)) {
-        const userIds = user.fincaIds.map((id: any) => String(id))
-        return fincasData.filter((f) => userIds.includes(String(f.id)))
-      }
-      if (user?.fincaId != null) {
-        const uid = String(user.fincaId)
-        return fincasData.filter((f) => String(f.id) === uid)
-      }
-      return []
-    })()
-
-    return assignedFincas
-  }, [fincasData, user])
-
-  const autoSelectedFinca = useMemo(() => {
-    if (user?.role === "USER" && userFincas.length === 1) {
-      return userFincas[0].id
-    }
-    return selectedFinca
-  }, [user, userFincas, selectedFinca])
 
   const handleFincaChange = (fincaId: string) => {
     setSelectedFinca(fincaId)
     setSelectedLote("")
-    setNewSchedule((prev) => ({ ...prev, loteId: "", valvulaIds: [] }))
   }
 
   const handleLoteChange = (loteId: string) => {
     setSelectedLote(loteId)
-    const loteInfo = lotesData.find(l => l.id?.toString() === loteId)
-    setNewSchedule((prev) => ({ 
-      ...prev, 
-      loteId, 
-      valvulaIds: [],
-      nombre: loteInfo ? `Riego ${loteInfo.nombre}` : ""
-    }))
   }
 
   return (
@@ -216,32 +171,23 @@ export function HistoricoDatos() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-3">
-            {(user?.role === "ADMIN" || userFincas.length > 1) && (
-              <div className="space-y-3">
-                <Label htmlFor="finca" className="text-sm font-medium">
-                  Finca
-                </Label>
-                <Select value={autoSelectedFinca} onValueChange={handleFincaChange}>
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Selecciona una finca" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {userFincas.map((finca) => (
-                      <SelectItem key={finca.id} value={finca.id} className="py-3">
-                        {finca.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {user?.role === "USER" && userFincas.length === 1 && (
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Finca</Label>
-                <div className="p-3 bg-muted rounded-md text-sm font-medium">{userFincas[0].nombre}</div>
-              </div>
-            )}
+            <div className="space-y-3">
+              <Label htmlFor="finca" className="text-sm font-medium">
+                Finca
+              </Label>
+              <Select value={selectedFinca} onValueChange={handleFincaChange}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Selecciona una finca" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fincasData.map((finca) => (
+                    <SelectItem key={finca.id} value={finca.id} className="py-3">
+                      {finca.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="space-y-3">
               <Label htmlFor="lote" className="text-sm font-medium">
@@ -262,6 +208,7 @@ export function HistoricoDatos() {
             </div>
           </div>
         </CardContent>
+        
         <CardContent>
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { useData } from "@/contexts/data-context"
+import { apiService } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,7 +11,10 @@ import { GoogleMap } from "./google-map"
 import { Droplets, Activity, RefreshCw, Building2, Layers, AlertTriangle } from "lucide-react"
 
 export function MonitoreoAvanzado() {
-  const { valvulas, lotes, fincas, toggleValvula } = useData()
+  // Datos reales obtenidos desde la API (no desde data-context)
+  const [fincasApi, setFincasApi] = useState<any[]>([])
+  const [lotesApi, setLotesApi] = useState<any[]>([])
+  const [valvulasApi, setValvulasApi] = useState<any[]>([])
   const [selectedFincaId, setSelectedFincaId] = useState<string>("")
   const [selectedValvula, setSelectedValvula] = useState<string | null>(null)
   const [isAutoRefresh, setIsAutoRefresh] = useState(true)
@@ -19,17 +22,118 @@ export function MonitoreoAvanzado() {
   const [markers, setMarkers] = useState<any[]>([])
   const [polygons, setPolygons] = useState<any[]>([])
 
-  // Filtrar datos por finca seleccionada - memoized
-  const selectedFinca = useMemo(() => fincas.find((f) => String(f.id) === selectedFincaId), [fincas, selectedFincaId])
+  // Cargar fincas desde la API al montar
+  useEffect(() => {
+    const fetchFincas = async () => {
+      try {
+        const resp = await apiService.getAllFincas()
+        const payload: any = resp?.data ?? resp
+        let arr: any[] = []
+        if (Array.isArray(payload)) arr = payload
+        else if (payload && Array.isArray(payload.data)) arr = payload.data
+        else if (payload && Array.isArray(payload.results)) arr = payload.results
+
+        const normalized = arr.map((f: any) => ({
+          ...f,
+          id: f.id != null ? String(f.id) : f.id,
+          nombre: f.nombre ?? f.name,
+          location: f.location ?? f.ubicacion ?? f.address ?? "",
+          latitude: typeof f.latitude === "number" ? f.latitude : (f.mapCoordinates?.lat ?? f.coordinates?.lat),
+          longitude: typeof f.longitude === "number" ? f.longitude : (f.mapCoordinates?.lng ?? f.coordinates?.lng),
+          lotes: Array.isArray(f.lotes) ? f.lotes : [],
+        }))
+        setFincasApi(normalized)
+      } catch (err) {
+        console.error("Error fetching fincas API:", err)
+        setFincasApi([])
+      }
+    }
+    fetchFincas()
+  }, [])
+
+  // Cargar lotes y válvulas cuando cambia la finca seleccionada
+  useEffect(() => {
+    const fetchLotesYValvulas = async () => {
+      if (!selectedFincaId) {
+        setLotesApi([])
+        setValvulasApi([])
+        return
+      }
+
+      try {
+        // Lotes
+        const respL = await apiService.request(`/api/lotes/all/${selectedFincaId}`)
+        const payloadL: any = respL?.data ?? respL
+        let lotesArr: any[] = []
+        if (Array.isArray(payloadL)) lotesArr = payloadL
+        else if (payloadL && Array.isArray(payloadL.data)) lotesArr = payloadL.data
+        else if (payloadL && Array.isArray(payloadL.results)) lotesArr = payloadL.results
+
+        // Normalizar ids y posibles valvulas embebidas
+        const normalizedLotes = lotesArr.map((l: any) => ({
+          ...l,
+          id: l.id != null ? String(l.id) : l.id,
+          nombre: l.nombre ?? l.name,
+          coordinates: l.coordinates ?? l.polygon ?? l.boundary,
+          centerCoordinates: l.centerCoordinates ?? l.center,
+          valvulas: Array.isArray(l.valvulas) ? l.valvulas : (l.valvulas ?? []),
+        }))
+        setLotesApi(normalizedLotes)
+
+        // Si lotes ya traen válvulas embebidas, usarlas; si no, pedir a la API
+        const embeddedValvulas = normalizedLotes.flatMap((l) => (Array.isArray(l.valvulas) ? l.valvulas : []))
+        if (embeddedValvulas.length > 0) {
+          // normalizar ids
+          setValvulasApi(embeddedValvulas.map((v: any) => ({ ...v, id: v.id != null ? String(v.id) : v.id })))
+        } else {
+          // Intentar endpoint por finca
+          try {
+            const respV = await apiService.request(`/api/valvulas/finca/${selectedFincaId}`)
+            const payloadV: any = respV?.data ?? respV
+            let valvArr: any[] = []
+            if (Array.isArray(payloadV)) valvArr = payloadV
+            else if (payloadV && Array.isArray(payloadV.data)) valvArr = payloadV.data
+            else if (payloadV && Array.isArray(payloadV.results)) valvArr = payloadV.results
+
+            setValvulasApi(valvArr.map((v: any) => ({ ...v, id: v.id != null ? String(v.id) : v.id })))
+          } catch (_e) {
+            // Fallback: obtener todas las válvulas y filtrar por finca/lote
+            try {
+              const respAll = await apiService.request("/api/valvulas")
+              const payloadAll: any = respAll?.data ?? respAll
+              let allArr: any[] = []
+              if (Array.isArray(payloadAll)) allArr = payloadAll
+              else if (payloadAll && Array.isArray(payloadAll.data)) allArr = payloadAll.data
+              else if (payloadAll && Array.isArray(payloadAll.results)) allArr = payloadAll.results
+
+              const filtered = allArr.filter((v) => String(v.fincaId) === String(selectedFincaId) || normalizedLotes.some((l) => String(l.id) === String(v.loteId)))
+              setValvulasApi(filtered.map((v: any) => ({ ...v, id: v.id != null ? String(v.id) : v.id })))
+            } catch (err) {
+              console.error("Error fetching valvulas fallback:", err)
+              setValvulasApi([])
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching lotes/valvulas:", err)
+        setLotesApi([])
+        setValvulasApi([])
+      }
+    }
+    fetchLotesYValvulas()
+  }, [selectedFincaId])
+
+  // Filtrar datos por finca seleccionada - memoized usando los datos de la API
+  const selectedFinca = useMemo(() => fincasApi.find((f) => String(f.id) === selectedFincaId), [fincasApi, selectedFincaId])
 
   const fincaLotes = useMemo(
-    () => (selectedFincaId ? lotes.filter((l) => l.fincaId.toString() === selectedFincaId.toString()) : []),
-    [lotes, selectedFincaId],
+    () => (selectedFincaId ? lotesApi.filter((l) => String(l.fincaId) === String(selectedFincaId)) : []),
+    [lotesApi, selectedFincaId],
   )
 
   const fincaValvulas = useMemo(
-    () => (selectedFincaId ? valvulas.filter((v) => v.fincaId.toString() === selectedFincaId.toString()) : []),
-    [valvulas, selectedFincaId],
+    () => (selectedFincaId ? valvulasApi.filter((v) => String(v.fincaId) === String(selectedFincaId) || String(v.loteId) && fincaLotes.some(l=>String(l.id)===String(v.loteId))) : []),
+    [valvulasApi, selectedFincaId, fincaLotes],
   )
 
   useEffect(() => {
@@ -304,9 +408,9 @@ export function MonitoreoAvanzado() {
               <SelectValue placeholder="Selecciona una finca para monitorear" />
             </SelectTrigger>
             <SelectContent>
-              {fincas.map((finca) => {
-                const fincaValvulasCount = valvulas.filter((v) => v.fincaId === finca.id).length
-                const activeFincaValvulas = valvulas.filter((v) => v.fincaId === finca.id && v.isActive).length
+              {fincasApi.map((finca) => {
+                const fincaValvulasCount = valvulasApi.filter((v) => String(v.fincaId) === String(finca.id)).length
+                const activeFincaValvulas = valvulasApi.filter((v) => String(v.fincaId) === String(finca.id) && v.isActive).length
 
                 return (
                   <SelectItem key={finca.id} value={String(finca.id)} className="py-3">
@@ -343,7 +447,7 @@ export function MonitoreoAvanzado() {
               <CardContent className="px-5 pb-5">
                 <div className="text-2xl font-bold text-green-600 leading-none">{fincaLotes.length}</div>
                 <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                  {fincaLotes.reduce((sum, l) => sum + l.area, 0).toFixed(1)} Ha total
+                  {fincaLotes.reduce((sum, l) => sum + (l.area ?? 0), 0).toFixed(1)} Ha total
                 </p>
               </CardContent>
             </Card>
@@ -387,7 +491,7 @@ export function MonitoreoAvanzado() {
             <div className="lg:col-span-2">
               <Card className="p-1">
                 <CardHeader className="px-6 py-5">
-                  <CardTitle className="leading-tight">Mapa de {selectedFinca.nombre}</CardTitle>
+                  <CardTitle className="leading-tight">Mapa de {selectedFinca?.nombre}</CardTitle>
                   <CardDescription className="leading-relaxed mt-2">
                     {selectedFinca.location} - Vista satelital con lotes y válvulas
                   </CardDescription>

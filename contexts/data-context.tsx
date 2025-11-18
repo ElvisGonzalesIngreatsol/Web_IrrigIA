@@ -60,555 +60,6 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
 
-// Datos simulados para cultivo de banano
-const initialUsers: User[] = [
-  {
-    id: "1",
-    name: "Juan Pérez",
-    email: "juan@irrigia.com",
-    password: "admin123",
-    phone: "+593 99 123 4567",
-    role: "admin",
-    isActive: true,
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Juan",
-    lastLogin: new Date(),
-    createdAt: new Date("2024-01-01"),
-  },
-  {
-    id: "2",
-    name: "María González",
-    email: "maria@finca1.com",
-    password: "client123",
-    phone: "+593 99 234 5678",
-    role: "client",
-    fincaId: "1",
-    isActive: true,
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Maria",
-    lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    createdAt: new Date("2024-01-15"),
-  },
-  {
-    id: "3",
-    name: "Carlos Rodríguez",
-    email: "carlos@finca2.com",
-    password: "client456",
-    phone: "+593 99 345 6789",
-    role: "client",
-    fincaId: "2",
-    isActive: true,
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Carlos",
-    lastLogin: new Date(Date.now() - 4 * 60 * 60 * 1000),
-    createdAt: new Date("2024-02-01"),
-  },
-  {
-    id: "4",
-    name: "Ana Morales",
-    email: "ana@finca3.com",
-    password: "client789",
-    phone: "+593 99 456 7890",
-    role: "client",
-    fincaId: "3",
-    isActive: true,
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Ana",
-    lastLogin: new Date(Date.now() - 6 * 60 * 60 * 1000),
-    createdAt: new Date("2024-02-15"),
-  },
-]
-
-const initialFincas: Finca[] = [
-  {
-    id: "1",
-    name: "Bananera San José",
-    location: "Los Ríos, Ecuador",
-    area: 45.5,
-    owner: "Juan Pérez",
-    status: "active",
-    coordinates: [
-      { lat: -1.2394, lng: -79.4678 },
-      { lat: -1.2397, lng: -79.4675 },
-      { lat: -1.24, lng: -79.468 },
-      { lat: -1.2396, lng: -79.4683 },
-    ],
-    mapCoordinates: { lat: -1.2397, lng: -79.4679, zoom: 16 },
-    lotes: [], // Se llenará dinámicamente
-    createdAt: new Date("2024-01-15"),
-  },
-  {
-    id: "2",
-    name: "Plantación El Oro",
-    location: "El Oro, Ecuador",
-    area: 62.3,
-    owner: "María González",
-    status: "active",
-    coordinates: [
-      { lat: -3.2594, lng: -79.9578 },
-      { lat: -3.2597, lng: -79.9575 },
-      { lat: -3.26, lng: -79.958 },
-      { lat: -3.2596, lng: -79.9583 },
-    ],
-    mapCoordinates: { lat: -3.2597, lng: -79.9579, zoom: 16 },
-    lotes: [], // Se llenará dinámicamente
-    createdAt: new Date("2024-02-01"),
-  },
-  {
-    id: "3",
-    name: "Bananera Los Andes",
-    location: "Guayas, Ecuador",
-    area: 38.7,
-    owner: "Carlos Rodríguez",
-    status: "active",
-    coordinates: [
-      { lat: -2.1894, lng: -79.8878 },
-      { lat: -2.1897, lng: -79.8875 },
-      { lat: -2.19, lng: -79.888 },
-      { lat: -2.1896, lng: -79.8883 },
-    ],
-    mapCoordinates: { lat: -2.1897, lng: -79.8879, zoom: 16 },
-    lotes: [], // Se llenará dinámicamente
-    createdAt: new Date("2024-02-15"),
-  },
-  {
-    id: "4",
-    name: "Finca Valle Verde",
-    location: "Manabí, Ecuador",
-    area: 55.2,
-    owner: "Ana López",
-    status: "active",
-    coordinates: [
-      { lat: -0.9594, lng: -80.7278 },
-      { lat: -0.9597, lng: -80.7275 },
-      { lat: -0.96, lng: -80.728 },
-      { lat: -0.9596, lng: -80.7283 },
-    ],
-    mapCoordinates: { lat: -0.9597, lng: -80.7279, zoom: 16 },
-    lotes: [], // Se llenará dinámicamente
-    createdAt: new Date("2024-03-01"),
-  },
-]
-
-const initialLotes: Lote[] = [
-  {
-    id: "1",
-    name: "Sector Norte",
-    fincaId: "1",
-    area: 15.2,
-    crop: "Banano Cavendish",
-    cropType: "Banano Cavendish",
-    valvulas: [], // Se llenará dinámicamente
-    sensors: [], // Se llenará dinámicamente
-    coordinates: [
-      { lat: -1.2394, lng: -79.4678 },
-      { lat: -1.2396, lng: -79.4676 },
-      { lat: -1.2398, lng: -79.4679 },
-      { lat: -1.2396, lng: -79.4681 },
-    ],
-    centerCoordinates: { lat: -1.2396, lng: -79.4679 },
-    createdAt: new Date("2024-01-20"),
-  },
-  {
-    id: "2",
-    name: "Sector Sur",
-    fincaId: "1",
-    area: 18.5,
-    crop: "Banano Cavendish",
-    cropType: "Banano Cavendish",
-    valvulas: [], // Se llenará dinámicamente
-    sensors: [], // Se llenará dinámicamente
-    coordinates: [
-      { lat: -1.2398, lng: -79.4681 },
-      { lat: -1.24, lng: -79.4679 },
-      { lat: -1.2402, lng: -79.4682 },
-      { lat: -1.24, lng: -79.4684 },
-    ],
-    centerCoordinates: { lat: -1.24, lng: -79.4682 },
-    createdAt: new Date("2024-01-20"),
-  },
-  {
-    id: "3",
-    name: "Bloque A",
-    fincaId: "2",
-    area: 20.8,
-    crop: "Banano Cavendish",
-    cropType: "Banano Cavendish",
-    valvulas: [], // Se llenará dinámicamente
-    sensors: [], // Se llenará dinámicamente
-    coordinates: [
-      { lat: -3.2594, lng: -79.9578 },
-      { lat: -3.2596, lng: -79.9576 },
-      { lat: -3.2598, lng: -79.9579 },
-      { lat: -3.2596, lng: -79.9581 },
-    ],
-    centerCoordinates: { lat: -3.2596, lng: -79.9579 },
-    createdAt: new Date("2024-02-05"),
-  },
-  {
-    id: "4",
-    name: "Bloque B",
-    fincaId: "2",
-    area: 22.1,
-    crop: "Banano Cavendish",
-    cropType: "Banano Cavendish",
-    valvulas: [], // Se llenará dinámicamente
-    sensors: [], // Se llenará dinámicamente
-    coordinates: [
-      { lat: -3.2598, lng: -79.9581 },
-      { lat: -3.26, lng: -79.9579 },
-      { lat: -3.2602, lng: -79.9582 },
-      { lat: -3.26, lng: -79.9584 },
-    ],
-    centerCoordinates: { lat: -3.26, lng: -79.4682 },
-    createdAt: new Date("2024-02-05"),
-  },
-  {
-    id: "5",
-    name: "Parcela Central",
-    fincaId: "3",
-    area: 25.3,
-    crop: "Banano Cavendish",
-    cropType: "Banano Cavendish",
-    valvulas: [], // Se llenará dinámicamente
-    sensors: [], // Se llenará dinámicamente
-    coordinates: [
-      { lat: -2.1894, lng: -79.8878 },
-      { lat: -2.1896, lng: -79.8876 },
-      { lat: -2.1898, lng: -79.8879 },
-      { lat: -2.1896, lng: -79.8881 },
-    ],
-    centerCoordinates: { lat: -2.1896, lng: -79.8879 },
-    createdAt: new Date("2024-02-20"),
-  },
-  {
-    id: "6",
-    name: "Zona Este",
-    fincaId: "4",
-    area: 28.7,
-    crop: "Banano Cavendish",
-    cropType: "Banano Cavendish",
-    valvulas: [], // Se llenará dinámicamente
-    sensors: [], // Se llenará dinámicamente
-    coordinates: [
-      { lat: -0.9594, lng: -80.7278 },
-      { lat: -0.9596, lng: -80.7276 },
-      { lat: -0.9598, lng: -80.7279 },
-      { lat: -0.9596, lng: -80.7281 },
-    ],
-    centerCoordinates: { lat: -0.9596, lng: -80.7279 },
-    createdAt: new Date("2024-03-05"),
-  },
-]
-
-const initialValvulas: Valvula[] = [
-  {
-    id: "1",
-    name: "Válvula Norte A1",
-    deviceId: "LORA_001",
-    fincaId: "1",
-    loteId: "1",
-    isOpen: true,
-    flowRate: 25.5,
-    status: "active",
-    coordinates: { lat: -1.2395, lng: -79.4678 },
-    lastActivity: new Date(),
-    tipo: "aspersion",
-    caudal: 25.5,
-    presion: 2.1,
-    createdAt: new Date("2024-01-25"),
-  },
-  {
-    id: "2",
-    name: "Válvula Norte A2",
-    deviceId: "LORA_002",
-    fincaId: "1",
-    loteId: "1",
-    isOpen: false,
-    flowRate: 0,
-    status: "active",
-    coordinates: { lat: -1.2397, lng: -79.4677 },
-    lastActivity: new Date(Date.now() - 3600000),
-    tipo: "goteo",
-    caudal: 18.3,
-    presion: 1.8,
-    createdAt: new Date("2024-01-25"),
-  },
-  {
-    id: "3",
-    name: "Válvula Sur B1",
-    deviceId: "LORA_003",
-    fincaId: "1",
-    loteId: "2",
-    isOpen: true,
-    flowRate: 30.2,
-    status: "active",
-    coordinates: { lat: -1.2399, lng: -79.4681 },
-    lastActivity: new Date(),
-    tipo: "aspersion",
-    caudal: 30.2,
-    presion: 2.3,
-    createdAt: new Date("2024-01-25"),
-  },
-  {
-    id: "4",
-    name: "Válvula Bloque A1",
-    deviceId: "LORA_004",
-    fincaId: "2",
-    loteId: "3",
-    isOpen: false,
-    flowRate: 0,
-    status: "maintenance",
-    coordinates: { lat: -3.2595, lng: -79.9578 },
-    lastActivity: new Date(Date.now() - 7200000),
-    tipo: "microaspersion",
-    caudal: 22.7,
-    presion: 1.9,
-    createdAt: new Date("2024-02-10"),
-  },
-  {
-    id: "5",
-    name: "Válvula Bloque A2",
-    deviceId: "LORA_005",
-    fincaId: "2",
-    loteId: "3",
-    isOpen: true,
-    flowRate: 28.8,
-    status: "active",
-    coordinates: { lat: -3.2597, lng: -79.9577 },
-    lastActivity: new Date(),
-    tipo: "aspersion",
-    caudal: 28.8,
-    presion: 2.0,
-    createdAt: new Date("2024-02-10"),
-  },
-  {
-    id: "6",
-    name: "Válvula Bloque B1",
-    deviceId: "LORA_006",
-    fincaId: "2",
-    loteId: "4",
-    isOpen: true,
-    flowRate: 32.1,
-    status: "active",
-    coordinates: { lat: -3.2599, lng: -79.9581 },
-    lastActivity: new Date(),
-    tipo: "goteo",
-    caudal: 32.1,
-    presion: 2.2,
-    createdAt: new Date("2024-02-10"),
-  },
-  {
-    id: "7",
-    name: "Válvula Central C1",
-    deviceId: "LORA_007",
-    fincaId: "3",
-    loteId: "5",
-    isOpen: false,
-    flowRate: 0,
-    status: "active",
-    coordinates: { lat: -2.1895, lng: -79.8878 },
-    lastActivity: new Date(Date.now() - 1800000),
-    tipo: "aspersion",
-    caudal: 26.4,
-    presion: 2.1,
-    createdAt: new Date("2024-02-25"),
-  },
-  {
-    id: "8",
-    name: "Válvula Este D1",
-    deviceId: "LORA_008",
-    fincaId: "4",
-    loteId: "6",
-    isOpen: true,
-    flowRate: 35.7,
-    status: "active",
-    coordinates: { lat: -0.9595, lng: -80.7278 },
-    lastActivity: new Date(),
-    tipo: "microaspersion",
-    caudal: 35.7,
-    presion: 2.4,
-    createdAt: new Date("2024-03-10"),
-  },
-]
-
-const initialSensors: Sensor[] = [
-  {
-    id: "1",
-    name: "Sensor Humedad Suelo Norte",
-    type: "humidity",
-    value: 68,
-    unit: "%",
-    status: "online",
-    lastReading: new Date(),
-    location: "Sector Norte - Bananera San José",
-    batteryLevel: 85,
-    loteId: "1",
-    nodoId: "1",
-    sensorCategory: "soil",
-  },
-  {
-    id: "2",
-    name: "Sensor Temperatura Suelo Norte",
-    type: "temperature",
-    value: 26.5,
-    unit: "°C",
-    status: "online",
-    lastReading: new Date(Date.now() - 5 * 60 * 1000),
-    location: "Sector Norte - Bananera San José",
-    batteryLevel: 92,
-    loteId: "1",
-    nodoId: "1",
-    sensorCategory: "soil",
-  },
-  {
-    id: "3",
-    name: "Sensor pH Suelo Norte",
-    type: "ph",
-    value: 6.2,
-    unit: "pH",
-    status: "warning",
-    lastReading: new Date(Date.now() - 15 * 60 * 1000),
-    location: "Sector Norte - Bananera San José",
-    batteryLevel: 45,
-    loteId: "1",
-    nodoId: "1",
-    sensorCategory: "soil",
-  },
-  {
-    id: "4",
-    name: "Sensor Temperatura Aire Norte",
-    type: "temperature",
-    value: 28.5,
-    unit: "°C",
-    status: "online",
-    lastReading: new Date(Date.now() - 2 * 60 * 1000),
-    location: "Sector Norte - Bananera San José",
-    batteryLevel: 88,
-    loteId: "1",
-    nodoId: "1",
-    sensorCategory: "air",
-  },
-  {
-    id: "5",
-    name: "Sensor Humedad Aire Norte",
-    type: "humidity",
-    value: 72,
-    unit: "%",
-    status: "online",
-    lastReading: new Date(),
-    location: "Sector Norte - Bananera San José",
-    batteryLevel: 90,
-    loteId: "1",
-    nodoId: "1",
-    sensorCategory: "air",
-  },
-  // Sensores para válvulas
-  {
-    id: "6",
-    name: "Sensor Presión Válvula Norte A1",
-    type: "pressure",
-    value: 2.1,
-    unit: "bar",
-    status: "online",
-    lastReading: new Date(),
-    location: "Válvula Norte A1 - Bananera San José",
-    batteryLevel: 78,
-    loteId: "1",
-    valvulaId: "1",
-    sensorCategory: "water",
-  },
-  {
-    id: "7",
-    name: "Sensor Flujo Válvula Norte A1",
-    type: "flow",
-    value: 25.5,
-    unit: "L/min",
-    status: "online",
-    lastReading: new Date(),
-    location: "Válvula Norte A1 - Bananera San José",
-    batteryLevel: 82,
-    loteId: "1",
-    valvulaId: "1",
-    sensorCategory: "water",
-  },
-  {
-    id: "8",
-    name: "Sensor Temperatura Agua Norte A1",
-    type: "temperature",
-    value: 24.2,
-    unit: "°C",
-    status: "online",
-    lastReading: new Date(),
-    location: "Válvula Norte A1 - Bananera San José",
-    batteryLevel: 85,
-    loteId: "1",
-    valvulaId: "1",
-    sensorCategory: "water",
-  },
-]
-
-const initialNodos: Nodo[] = [
-  {
-    id: "1",
-    name: "Nodo Norte A",
-    fincaId: "1",
-    loteId: "1",
-    deviceId: "NODE_001",
-    coordinates: { lat: -1.2395, lng: -79.4678 },
-    status: "active",
-    batteryLevel: 85,
-    lastActivity: new Date(),
-    sensors: [],
-    createdAt: new Date("2024-01-25"),
-  },
-  {
-    id: "2",
-    name: "Nodo Sur B",
-    fincaId: "1",
-    loteId: "2",
-    deviceId: "NODE_002",
-    coordinates: { lat: -1.2399, lng: -79.4681 },
-    status: "active",
-    batteryLevel: 92,
-    lastActivity: new Date(),
-    sensors: [],
-    createdAt: new Date("2024-01-25"),
-  },
-]
-
-const initialSuggestions: IrrigationSuggestion[] = [
-  {
-    id: "1",
-    fincaId: "1",
-    loteId: "1",
-    loteName: "Sector Norte - Bananera San José",
-    priority: "high",
-    reason: "Humedad del suelo por debajo del 60% - Crítico para banano",
-    recommendedDuration: 45,
-    estimatedWaterUsage: 1200,
-    timestamp: new Date(),
-  },
-  {
-    id: "2",
-    fincaId: "2",
-    loteId: "3",
-    loteName: "Bloque A - Plantación El Oro",
-    priority: "medium",
-    reason: "Temperatura elevada (>28°C) - Estrés hídrico en banano",
-    recommendedDuration: 35,
-    estimatedWaterUsage: 950,
-    timestamp: new Date(Date.now() - 30 * 60 * 1000),
-  },
-  {
-    id: "3",
-    fincaId: "3",
-    loteId: "5",
-    loteName: "Parcela Central - Bananera Los Andes",
-    priority: "low",
-    reason: "Riego preventivo - Mantenimiento de humedad óptima",
-    recommendedDuration: 25,
-    estimatedWaterUsage: 680,
-    timestamp: new Date(Date.now() - 60 * 60 * 1000),
-  },
-]
-
 // Función para construir datos jerárquicos
 const buildHierarchicalData = (fincas: Finca[], lotes: Lote[], valvulas: Valvula[], sensors: Sensor[]): Finca[] => {
   return fincas.map((finca) => ({
@@ -624,55 +75,23 @@ const buildHierarchicalData = (fincas: Finca[], lotes: Lote[], valvulas: Valvula
 }
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [users, setUsers] = useState<User[]>(initialUsers)
-  const [baseFincas, setBaseFincas] = useState<Finca[]>(initialFincas)
-  const [lotes, setLotes] = useState<Lote[]>(initialLotes)
-  const [valvulas, setValvulas] = useState<Valvula[]>(initialValvulas)
-  const [sensors, setSensors] = useState<Sensor[]>(initialSensors)
+  const [users, setUsers] = useState<User[]>([])
+  const [baseFincas, setBaseFincas] = useState<Finca[]>([])
+  const [lotes, setLotes] = useState<Lote[]>([])
+  const [valvulas, setValvulas] = useState<Valvula[]>([])
+  const [sensors, setSensors] = useState<Sensor[]>([])
   const [schedules, setSchedules] = useState<IrrigationSchedule[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
-  const [suggestions, setSuggestions] = useState<IrrigationSuggestion[]>(initialSuggestions)
-  const [nodos, setNodos] = useState<Nodo[]>(initialNodos)
+  const [suggestions, setSuggestions] = useState<IrrigationSuggestion[]>([])
+  const [nodos, setNodos] = useState<Nodo[]>([])
 
   // Construir datos jerárquicos dinámicamente
   const fincas = buildHierarchicalData(baseFincas, lotes, valvulas, sensors)
 
-  const [weather, setWeather] = useState<WeatherData | null>({
-    temperature: 27,
-    humidity: 72,
-    precipitation: 0,
-    windSpeed: 8,
-    forecast: [
-      {
-        date: "2024-01-15",
-        temperature: { min: 22, max: 30 },
-        precipitation: 0,
-        humidity: 68,
-      },
-      {
-        date: "2024-01-16",
-        temperature: { min: 23, max: 31 },
-        precipitation: 2,
-        humidity: 75,
-      },
-      {
-        date: "2024-01-17",
-        temperature: { min: 21, max: 28 },
-        precipitation: 8,
-        humidity: 82,
-      },
-    ],
-  })
+  const [weather, setWeather] = useState<WeatherData | null>(null)
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null)
 
-  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>({
-    connectivity: 96,
-    activeDevices: 28,
-    totalDevices: 30,
-    lastUpdate: new Date(),
-    alerts: 3,
-  })
-
-  // Simular actualizaciones en tiempo real
+  // Simular datos en tiempo real
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
 
@@ -693,7 +112,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           setValvulas((prev) =>
             prev.map((valvula) => ({
               ...valvula,
-              flowRate: valvula.isOpen ? Math.max(0, valvula.flowRate + (Math.random() - 0.5) * 3) : 0,
+              caudal: valvula.isActive ? Math.max(0, (valvula.caudal || 0) + (Math.random() - 0.5) * 3) : 0,
             })),
           )
 
@@ -725,46 +144,46 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addUser = (user: Omit<User, "id" | "createdAt">) => {
     const newUser: User = {
       ...user,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
+      id: Math.floor(Math.random() * 1000000),
+      createdAt: new Date().toISOString(),
     }
     setUsers((prev) => [...prev, newUser])
   }
 
   const updateUser = (id: string, userData: Partial<User>) => {
-    setUsers((prev) => prev.map((user) => (user.id === id ? { ...user, ...userData } : user)))
+    setUsers((prev) => prev.map((user) => (user.id.toString() === id ? { ...user, ...userData } : user)))
   }
 
   const deleteUser = (id: string) => {
-    setUsers((prev) => prev.filter((user) => user.id !== id))
+    setUsers((prev) => prev.filter((user) => user.id.toString() !== id))
   }
 
   const addFinca = (finca: Omit<Finca, "id" | "createdAt">) => {
     const newFinca: Finca = {
       ...finca,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
+      id: Math.floor(Math.random() * 1000000),
+      createdAt: new Date().toISOString(),
       lotes: [], // Se llenará dinámicamente
     }
     setBaseFincas((prev) => [...prev, newFinca])
   }
 
   const updateFinca = (id: string, fincaData: Partial<Finca>) => {
-    setBaseFincas((prev) => prev.map((finca) => (finca.id === id ? { ...finca, ...fincaData } : finca)))
+    setBaseFincas((prev) => prev.map((finca) => (finca.id.toString() === id ? { ...finca, ...fincaData } : finca)))
   }
 
   const deleteFinca = (id: string) => {
-    setBaseFincas((prev) => prev.filter((finca) => finca.id !== id))
+    setBaseFincas((prev) => prev.filter((finca) => finca.id.toString() !== id))
     // También eliminar lotes y válvulas relacionadas
-    setLotes((prev) => prev.filter((lote) => lote.fincaId !== id))
-    setValvulas((prev) => prev.filter((valvula) => valvula.fincaId !== id))
+    setLotes((prev) => prev.filter((lote) => lote.fincaId.toString() !== id))
+    setValvulas((prev) => prev.filter((valvula) => valvula.fincaId.toString() !== id))
   }
 
   const addLote = (lote: Omit<Lote, "id" | "createdAt">) => {
     const newLote: Lote = {
       ...lote,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date(),
+      id: Math.floor(Math.random() * 1000000),
+      createdAt: new Date().toISOString(),
       valvulas: [],
       sensors: [],
     }
@@ -773,12 +192,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // Generar nodo por defecto y sensores automáticamente
     setTimeout(() => {
       const defaultNodo = {
-        name: `Nodo ${newLote.name}`,
+        name: `Nodo ${newLote.nombre}`,
         fincaId: newLote.fincaId,
         loteId: newLote.id,
         deviceId: `NODE_${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
         coordinates: newLote.centerCoordinates,
-        status: "active",
+        status: "active" as const,
         batteryLevel: 85 + Math.random() * 15,
         lastActivity: new Date(),
       }
@@ -787,48 +206,47 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateLote = (id: string, loteData: Partial<Lote>) => {
-    setLotes((prev) => prev.map((lote) => (lote.id === id ? { ...lote, ...loteData } : lote)))
+    setLotes((prev) => prev.map((lote) => (lote.id.toString() === id ? { ...lote, ...loteData } : lote)))
   }
 
   const deleteLote = (id: string) => {
-    setLotes((prev) => prev.filter((lote) => lote.id !== id))
+    setLotes((prev) => prev.filter((lote) => lote.id.toString() !== id))
     // También eliminar válvulas relacionadas
-    setValvulas((prev) => prev.filter((valvula) => valvula.loteId !== id))
+    setValvulas((prev) => prev.filter((valvula) => valvula.loteId.toString() !== id))
   }
 
-  const addValvula = (valvula: Omit<Valvula, "id" | "createdAt" | "lastActivity">) => {
+  const addValvula = (valvula: Omit<Valvula, "id" | "createdAt">) => {
     const newValvula: Valvula = {
       ...valvula,
-      id: Math.random().toString(36).substr(2, 9),
-      lastActivity: new Date(),
-      createdAt: new Date(),
+      id: Math.floor(Math.random() * 1000000),
+      createdAt: new Date().toISOString(),
     }
     setValvulas((prev) => [...prev, newValvula])
 
     // Generar sensores automáticamente para la nueva válvula
     setTimeout(() => {
-      generateAutoSensors(valvula.loteId, undefined, newValvula.id)
+      generateAutoSensors(valvula.loteId.toString(), undefined, newValvula.id.toString())
     }, 100)
   }
 
   const updateValvula = (id: string, valvulaData: Partial<Valvula>) => {
     setValvulas((prev) =>
-      prev.map((valvula) => (valvula.id === id ? { ...valvula, ...valvulaData, lastActivity: new Date() } : valvula)),
+      prev.map((valvula) => (valvula.id.toString() === id ? { ...valvula, ...valvulaData, lastActivity: new Date() } : valvula)),
     )
   }
 
   const deleteValvula = (id: string) => {
-    setValvulas((prev) => prev.filter((valvula) => valvula.id !== id))
+    setValvulas((prev) => prev.filter((valvula) => valvula.id.toString() !== id))
   }
 
   const toggleValvula = (id: string) => {
     setValvulas((prev) =>
       prev.map((valvula) =>
-        valvula.id === id
+        valvula.id.toString() === id
           ? {
               ...valvula,
-              isOpen: !valvula.isOpen,
-              flowRate: !valvula.isOpen ? valvula.caudal || 0 : 0,
+              isOpen: !valvula.estado,
+              flowRate: !valvula.estado ? valvula.caudal || 0 : 0,
               lastActivity: new Date(),
             }
           : valvula,
@@ -840,24 +258,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addSchedule = (schedule: Omit<IrrigationSchedule, "id" | "createdAt">) => {
     const newSchedule: IrrigationSchedule = {
       ...schedule,
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.floor(Math.random() * 1000000),
       createdAt: new Date(),
     }
     setSchedules((prev) => [...prev, newSchedule])
   }
 
   const updateSchedule = (id: string, scheduleData: Partial<IrrigationSchedule>) => {
-    setSchedules((prev) => prev.map((schedule) => (schedule.id === id ? { ...schedule, ...scheduleData } : schedule)))
+    setSchedules((prev) => prev.map((schedule) => (schedule.id.toString() === id ? { ...schedule, ...scheduleData } : schedule)))
   }
 
   const deleteSchedule = (id: string) => {
-    setSchedules((prev) => prev.filter((schedule) => schedule.id !== id))
+    setSchedules((prev) => prev.filter((schedule) => schedule.id.toString() !== id))
   }
 
   const addNotification = (notification: Omit<Notification, "id" | "timestamp" | "isRead">) => {
     const newNotification: Notification = {
       ...notification,
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.floor(Math.random() * 1000000),
       timestamp: new Date(),
       isRead: false,
     }
@@ -866,14 +284,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const markNotificationAsRead = (id: string) => {
     setNotifications((prev) =>
-      prev.map((notification) => (notification.id === id ? { ...notification, isRead: true } : notification)),
+      prev.map((notification) => (notification.id.toString() === id ? { ...notification, isRead: true } : notification)),
     )
   }
 
   const addNodo = (nodo: Omit<Nodo, "id" | "createdAt" | "sensors">) => {
     const newNodo: Nodo = {
       ...nodo,
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.floor(Math.random() * 1000000),
       createdAt: new Date(),
       sensors: [],
     }
@@ -881,44 +299,44 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     // Generar sensores automáticamente para el nuevo nodo
     setTimeout(() => {
-      generateAutoSensors(nodo.loteId, newNodo.id)
+      generateAutoSensors(nodo.loteId.toString(), newNodo.id.toString())
     }, 100)
   }
 
   const updateNodo = (id: string, nodoData: Partial<Nodo>) => {
-    setNodos((prev) => prev.map((nodo) => (nodo.id === id ? { ...nodo, ...nodoData } : nodo)))
+    setNodos((prev) => prev.map((nodo) => (nodo.id.toString() === id ? { ...nodo, ...nodoData } : nodo)))
   }
 
   const deleteNodo = (id: string) => {
-    setNodos((prev) => prev.filter((nodo) => nodo.id !== id))
+    setNodos((prev) => prev.filter((nodo) => nodo.id.toString() !== id))
     // También eliminar sensores relacionados
-    setSensors((prev) => prev.filter((sensor) => sensor.nodoId !== id))
+    setSensors((prev) => prev.filter((sensor) => sensor.nodoId?.toString() !== id))
   }
 
   const addSensor = (sensor: Omit<Sensor, "id">) => {
     const newSensor: Sensor = {
       ...sensor,
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.floor(Math.random() * 1000000),
     }
     setSensors((prev) => [...prev, newSensor])
   }
 
   const updateSensor = (id: string, sensorData: Partial<Sensor>) => {
-    setSensors((prev) => prev.map((sensor) => (sensor.id === id ? { ...sensor, ...sensorData } : sensor)))
+    setSensors((prev) => prev.map((sensor) => (sensor.id.toString() === id ? { ...sensor, ...sensorData } : sensor)))
   }
 
   const deleteSensor = (id: string) => {
-    setSensors((prev) => prev.filter((sensor) => sensor.id !== id))
+    setSensors((prev) => prev.filter((sensor) => sensor.id.toString() !== id))
   }
 
   const generateAutoSensors = (loteId: string, nodoId?: string, valvulaId?: string) => {
-    const lote = lotes.find((l) => l.id === loteId)
+    const lote = lotes.find((l) => l.id.toString() === loteId)
     if (!lote) return
 
     const newSensors: Sensor[] = []
 
     if (nodoId) {
-      const nodo = nodos.find((n) => n.id === nodoId)
+      const nodo = nodos.find((n) => n.id.toString() === nodoId)
       if (nodo) {
         // Sensores de suelo por nodo
         const soilSensors = [
@@ -964,76 +382,86 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         ]
 
         soilSensors.forEach((sensorData) => {
-          newSensors.push({
-            id: Math.random().toString(36).substr(2, 9),
-            ...sensorData,
-            status: "online",
-            lastReading: new Date(),
-            location: `${lote.name} - ${nodo.name}`,
-            batteryLevel: 80 + Math.random() * 20,
-            loteId: loteId,
-            nodoId: nodoId,
-          })
-        })
-
+                  newSensors.push({
+                    id: Math.floor(Math.random() * 1000000),
+                    ...sensorData,
+                    type: sensorData.type as "ph" | "temperature" | "humidity" | "flow" | "pressure",
+                    sensorCategory: sensorData.sensorCategory as "soil",
+                    status: "online",
+                    lastReading: new Date(),
+                    location: `${lote.nombre} - ${nodo.name}`,
+                    batteryLevel: 80 + Math.random() * 20,
+                    loteId: loteId as any,
+                    nodoId: nodoId as any,
+                  })
+                })
         airSensors.forEach((sensorData) => {
-          newSensors.push({
-            id: Math.random().toString(36).substr(2, 9),
-            ...sensorData,
-            status: "online",
-            lastReading: new Date(),
-            location: `${lote.name} - ${nodo.name}`,
-            batteryLevel: 80 + Math.random() * 20,
-            loteId: loteId,
-            nodoId: nodoId,
-          })
-        })
+                  newSensors.push({
+                    id: Math.floor(Math.random() * 1000000),
+                    ...sensorData,
+                    type: sensorData.type as "ph" | "temperature" | "humidity" | "flow" | "pressure",
+                    sensorCategory: sensorData.sensorCategory as "air",
+                    status: "online",
+                    lastReading: new Date(),
+                    location: `${lote.nombre} - ${nodo.name}`,
+                    batteryLevel: 80 + Math.random() * 20,
+                    loteId: loteId as any,
+                    nodoId: nodoId as any,
+                  })
+                })
       }
     }
 
     if (valvulaId) {
-      const valvula = valvulas.find((v) => v.id === valvulaId)
+      const valvula = valvulas.find((v) => v.id.toString() === valvulaId)
       if (valvula) {
         // Sensores de agua por válvula
-        const waterSensors = [
+        interface WaterSensorData {
+          name: string
+          type: "pressure" | "temperature" | "flow"
+          unit: string
+          sensorCategory: "water"
+          value: number
+        }
+        const waterSensors: WaterSensorData[] = [
           {
-            name: `Sensor Presión ${valvula.name}`,
+            name: `Sensor Presión ${valvula.nombre}`,
             type: "pressure",
             unit: "bar",
             sensorCategory: "water",
             value: 1.5 + Math.random() * 1,
           },
           {
-            name: `Sensor Temperatura Agua ${valvula.name}`,
+            name: `Sensor Temperatura Agua ${valvula.nombre}`,
             type: "temperature",
             unit: "°C",
             sensorCategory: "water",
             value: 22 + Math.random() * 4,
           },
           {
-            name: `Sensor Flujo ${valvula.name}`,
+            name: `Sensor Flujo ${valvula.nombre}`,
             type: "flow",
             unit: "L/min",
             sensorCategory: "water",
             value: valvula.caudal || 20 + Math.random() * 15,
           },
-        ]
+        ];
 
-        waterSensors.forEach((sensorData) => {
+        waterSensors.forEach((sensorData: WaterSensorData) => {
           newSensors.push({
-            id: Math.random().toString(36).substr(2, 9),
+            id: Math.floor(Math.random() * 1000000),
             ...sensorData,
+            sensorCategory: sensorData.sensorCategory,
             status: "online",
             lastReading: new Date(),
-            location: `${lote.name} - ${valvula.name}`,
+            location: `${lote.nombre} - ${valvula.nombre}`,
             batteryLevel: 75 + Math.random() * 25,
-            loteId: loteId,
-            valvulaId: valvulaId,
+            loteId: loteId as any,
+            valvulaId: valvulaId as any,
           })
         })
       }
     }
-
     // Agregar todos los sensores generados
     setSensors((prev) => [...prev, ...newSensors])
   }
@@ -1041,7 +469,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addSuggestion = (suggestion: Omit<IrrigationSuggestion, "id">) => {
     const newSuggestion: IrrigationSuggestion = {
       ...suggestion,
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.floor(Math.random() * 1000000),
     }
     setSuggestions((prev) => [newSuggestion, ...prev])
 
@@ -1055,11 +483,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }
 
   const removeSuggestion = (id: string) => {
-    setSuggestions((prev) => prev.filter((suggestion) => suggestion.id !== id))
+    setSuggestions((prev) => prev.filter((suggestion) => suggestion.id.toString() !== id))
   }
 
   const applySuggestion = (id: string) => {
-    const suggestion = suggestions.find((s) => s.id === id)
+    const suggestion = suggestions.find((s) => s.id.toString() === id)
     if (!suggestion) return
 
     // Find valves in the suggested lote
@@ -1068,9 +496,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (loteValves.length > 0) {
       // Activate the first valve (or all valves in the lote)
       loteValves.forEach((valve) => {
-        updateValvula(valve.id, {
-          isOpen: true,
-          flowRate: valve.caudal || 25,
+        updateValvula(valve.id.toString(), {
+          isActive: true,
+          caudal: valve.caudal || 25,
         })
       })
 
@@ -1086,9 +514,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setTimeout(
         () => {
           loteValves.forEach((valve) => {
-            updateValvula(valve.id, {
-              isOpen: false,
-              flowRate: 0,
+            updateValvula(valve.id.toString(), {
+              isActive: false,
+              caudal: 0,
             })
           })
 
